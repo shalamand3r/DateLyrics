@@ -1,3 +1,5 @@
+export PACKAGE_VERSION := 1.0
+
 TARGET := iphone:clang:16.5:15.0
 INSTALL_TARGET_PROCESSES = Music
 
