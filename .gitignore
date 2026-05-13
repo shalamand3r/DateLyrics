@@ -4,9 +4,7 @@ packages/
 __handlers__/
 .cache/
 compile_commands.json
-
-# Created by https://www.toptal.com/developers/gitignore/api/macos,xcode,swift
-# Edit at https://www.toptal.com/developers/gitignore?templates=macos,xcode,swift
+reference/
 
 ### macOS ###
 # General
@@ -139,4 +137,3 @@ iOSInjectionProject/
 **/xcshareddata/WorkspaceSettings.xcsettings
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,xcode,swift
-
