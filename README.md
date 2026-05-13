@@ -6,7 +6,10 @@ DateLyrics brings Apple Music lyrics to the lock screen date surface on modern r
 ---
 
 <p align="center">
-  <img src="https://github.com/shalamand3r/DateLyrics/blob/main/DateLyricsIcon.png" width="300">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="DateLyricsIconDark.png">
+    <img src="DateLyricsIconLight.png" width="300" alt="DateLyrics icon">
+  </picture>
 </p>
 
 ---
