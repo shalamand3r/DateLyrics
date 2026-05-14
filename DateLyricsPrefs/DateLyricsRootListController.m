@@ -6,6 +6,10 @@
 extern char **environ;
 
 static NSString *const kDateLyricsPrefsSuite = @"com.shalamand3r.datelyrics";
+static NSString *const kDateLyricsBridgeFilePath = @"/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.current-line.txt";
+static NSString *const kDateLyricsLegacyBridgeFilePath = @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt";
+static CFStringRef const kDateLyricsCurrentLineChangedNotification = CFSTR("com.shalamand3r.datelyrics.current-line.changed");
+static CFStringRef const kDateLyricsLegacyCurrentLineChangedNotification = CFSTR("com.82flex.amlyrics.current-line.changed");
 static UIImage *_cachedGithubIcon = nil;
 
 @interface LSApplicationProxy : NSObject
@@ -165,15 +169,14 @@ static UIImage *_cachedGithubIcon = nil;
 	UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
 	[haptic impactOccurred];
 
-    NSString *bundleID = @"com.shalamand3r.datelyrics";
-    CFPreferencesSetAppValue((__bridge CFStringRef)@"Enabled", NULL, (__bridge CFStringRef)bundleID);
-    CFPreferencesSetAppValue((__bridge CFStringRef)@"ForceLowercase", NULL, (__bridge CFStringRef)bundleID);
-    CFPreferencesSetAppValue((__bridge CFStringRef)@"WordHighlighting", NULL, (__bridge CFStringRef)bundleID);
-    CFPreferencesSetAppValue((__bridge CFStringRef)@"HighlightStyle", NULL, (__bridge CFStringRef)bundleID);
-    CFPreferencesSetAppValue((__bridge CFStringRef)@"StrokeWidth", NULL, (__bridge CFStringRef)bundleID);
-    CFPreferencesSetAppValue((__bridge CFStringRef)@"MinimumScale", NULL, (__bridge CFStringRef)bundleID);
-    CFPreferencesSetAppValue((__bridge CFStringRef)@"PauseTimeout", NULL, (__bridge CFStringRef)bundleID);
-    CFPreferencesAppSynchronize((__bridge CFStringRef)bundleID);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"Enabled", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"ForceLowercase", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"WordHighlighting", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"HighlightStyle", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"StrokeWidth", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"MinimumScale", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"PauseTimeout", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kDateLyricsPrefsSuite);
 
     NSFileManager *fileManager = [NSFileManager defaultManager];
 
@@ -199,7 +202,8 @@ static UIImage *_cachedGithubIcon = nil;
 
      
     NSArray *sharedPaths = @[
-        @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt"
+        kDateLyricsBridgeFilePath,
+        kDateLyricsLegacyBridgeFilePath
     ];
     for (NSString *path in sharedPaths) {
         if ([fileManager fileExistsAtPath:path]) {
@@ -210,7 +214,8 @@ static UIImage *_cachedGithubIcon = nil;
     [self reload];
     
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)@"com.shalamand3r.datelyrics/ReloadPrefs", NULL, NULL, YES);
-    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)@"com.82flex.amlyrics.current-line.changed", NULL, NULL, YES);
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), kDateLyricsCurrentLineChangedNotification, NULL, NULL, YES);
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), kDateLyricsLegacyCurrentLineChangedNotification, NULL, NULL, YES);
 }
 
 - (void)openGithub {

@@ -150,10 +150,12 @@ static const void *kDateLyricsOriginalHiddenKey = &kDateLyricsOriginalHiddenKey;
 static const void *kDateLyricsRestoringStockDateKey = &kDateLyricsRestoringStockDateKey;
 static const void *kDateLyricsLabelShowingLyricKey = &kDateLyricsLabelShowingLyricKey;
 
-static NSString *const kDateLyricsPrefsSuite = @"com.82flex.amlyrics";
+static NSString *const kDateLyricsPrefsSuite = @"com.shalamand3r.datelyrics";
 static NSString *const kDateLyricsCurrentLineKey = @"CurrentLyricLine";
-static NSString *const kDateLyricsBridgeFilePath = @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt";
-static CFStringRef const kDateLyricsCurrentLineChangedNotification = CFSTR("com.82flex.amlyrics.current-line.changed");
+static NSString *const kDateLyricsBridgeFilePath = @"/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.current-line.txt";
+static NSString *const kDateLyricsLegacyBridgeFilePath = @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt";
+static CFStringRef const kDateLyricsCurrentLineChangedNotification = CFSTR("com.shalamand3r.datelyrics.current-line.changed");
+static CFStringRef const kDateLyricsLegacyCurrentLineChangedNotification = CFSTR("com.82flex.amlyrics.current-line.changed");
 static NSString *GetLyricsRootPath(void);
 
 static BOOL DateLyricsIsSpringBoardHost(void) {
@@ -260,6 +262,11 @@ static NSDictionary *DateLyricsReadPayloadFromBridgeFile(void) {
     return DateLyricsDeserializePayloadString(line);
 }
 
+static NSDictionary *DateLyricsReadPayloadFromLegacyBridgeFile(void) {
+    NSString *line = [NSString stringWithContentsOfFile:kDateLyricsLegacyBridgeFilePath encoding:NSUTF8StringEncoding error:nil];
+    return DateLyricsDeserializePayloadString(line);
+}
+
 static NSDictionary *DateLyricsReadPayloadFromMusicContainer(void) {
     NSString *path = DateLyricsMusicContainerCurrentLinePath();
     if (path.length == 0) return nil;
@@ -282,6 +289,7 @@ static void DateLyricsPublishPayload(NSDictionary *payload) {
         [publishedLine writeToFile:DateLyricsLocalCurrentLinePath() atomically:YES encoding:NSUTF8StringEncoding error:nil];
     }
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), kDateLyricsCurrentLineChangedNotification, NULL, NULL, YES);
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), kDateLyricsLegacyCurrentLineChangedNotification, NULL, NULL, YES);
 }
 
 static NSDictionary *DateLyricsStoredPayload(void) {
@@ -293,8 +301,17 @@ static NSDictionary *DateLyricsStoredPayload(void) {
     if (filePayload) {
         return filePayload;
     }
+    NSDictionary *legacyFilePayload = DateLyricsReadPayloadFromLegacyBridgeFile();
+    if (legacyFilePayload) {
+        return legacyFilePayload;
+    }
     CFPropertyListRef value = CFPreferencesCopyAppValue((__bridge CFStringRef)kDateLyricsCurrentLineKey, (__bridge CFStringRef)kDateLyricsPrefsSuite);
-    return DateLyricsDeserializePayloadString(CFBridgingRelease(value));
+    NSDictionary *prefsPayload = DateLyricsDeserializePayloadString(CFBridgingRelease(value));
+    if (prefsPayload) {
+        return prefsPayload;
+    }
+    CFPropertyListRef legacyValue = CFPreferencesCopyAppValue((__bridge CFStringRef)kDateLyricsCurrentLineKey, CFSTR("com.82flex.amlyrics"));
+    return DateLyricsDeserializePayloadString(CFBridgingRelease(legacyValue));
 }
 
 static void DateLyricsCurrentLineChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
@@ -1191,7 +1208,7 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     dispatch_once(&onceToken, ^{
         gLyricsCache = [[NSMutableDictionary alloc] init];
         gWordLyricsCache = [[NSMutableDictionary alloc] init];
-        gLyricsQueue = dispatch_queue_create("com.82flex.amlyrics.queue", DISPATCH_QUEUE_SERIAL);
+        gLyricsQueue = dispatch_queue_create("com.shalamand3r.datelyrics.queue", DISPATCH_QUEUE_SERIAL);
         gLyricsTaskQueue = [NSMutableArray array];
         gPendingLyricsIDs = [NSMutableSet set];
     });
