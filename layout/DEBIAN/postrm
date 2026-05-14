@@ -1,0 +1,37 @@
+#!/bin/bash
+
+if [ "$1" == "remove" ] || [ "$1" == "purge" ]; then
+    echo "Cleaning up Apple Music Container..."
+    
+    SHARED_DIR="/var/mobile/Library/DateLyrics"
+    if [ -d "$SHARED_DIR" ] && [ ! -L "$SHARED_DIR" ]; then
+        if [ "$(basename "$SHARED_DIR")" == "DateLyrics" ]; then
+            rm -rf "$SHARED_DIR"
+            echo " ✅ Removed DateLyrics files from /var/mobile/Library"
+        fi
+    fi
+    
+    if [ -f /var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt ]; then
+        rm -f /var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt
+        echo " ✅ Removed lyrics bridge file"
+    fi
+
+    if [ -f /var/mobile/Library/Preferences/com.shalamand3r.datelyrics.heartbeat.txt ]; then
+        rm -f /var/mobile/Library/Preferences/com.shalamand3r.datelyrics.heartbeat.txt
+    fi
+    
+    if [ -d "/var/mobile/Containers/Data/Application" ]; then
+        for container in /var/mobile/Containers/Data/Application/*; do
+            TARGET="$container/Library/DateLyrics"
+            if [ -d "$TARGET" ] && [ ! -L "$TARGET" ]; then
+                if [ "$(basename "$TARGET")" == "DateLyrics" ]; then
+                    rm -rf "$TARGET"
+                    echo " ✅ Removed DateLyrics files from Apple Music container"
+                fi
+            fi
+        done
+    fi
+    echo "Cleanup complete."
+fi
+
+exit 0
