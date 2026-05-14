@@ -1,7 +1,7 @@
 # DateLyrics 🎵
 ### Apple Music lyrics in the Lock Screen date view!
 
-DateLyrics brings Apple Music lyrics to the lock screen date widget view. DateLyrics also supports word-by-word lyric highlighting on supported songs.
+DateLyrics brings Apple Music lyrics to the lock screen date widget view. Lyrics are pulled directly from Apple Music, which means that word-by-word lyrics (karaoke style syllable highlighting) is also supported when available.
 
 ---
 
@@ -14,7 +14,7 @@ DateLyrics brings Apple Music lyrics to the lock screen date widget view. DateLy
       </picture>
     </td>
     <td align="center">
-      <img src="demo.png" width="260" alt="DateLyrics demo" style="border-radius: 18px;">
+      <img src="demo.png" width="450" alt="DateLyrics demo" style="border-radius: 18px;">
     </td>
   </tr>
 </table>
