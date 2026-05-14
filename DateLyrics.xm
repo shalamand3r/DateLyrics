@@ -133,7 +133,10 @@ static pthread_mutex_t gLyricsCacheMutex = PTHREAD_MUTEX_INITIALIZER;
 static MPNowPlayingInfoCenter *gNowPlayingInfoCenter = nil;
 
 static BOOL gDateLyricsEnabled = YES;
+static BOOL gDateLyricsForceLowercase = NO;
 static BOOL gDateLyricsWordHighlighting = YES;
+static NSInteger gDateLyricsHighlightStyle = 0;
+static CGFloat gDateLyricsStrokeWidth = 3.0;
 static CGFloat gDateLyricsMinimumScale = 0.55;
 static NSTimeInterval gDateLyricsPauseTimeout = 7.0;
 
@@ -143,6 +146,7 @@ static NSDictionary *gDateLyricsCurrentPayload = nil;
 
 static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot);
 static const void *kDateLyricsForcedWidgetDateVisibleKey = &kDateLyricsForcedWidgetDateVisibleKey;
+static const void *kDateLyricsOriginalHiddenKey = &kDateLyricsOriginalHiddenKey;
 
 static NSString *const kDateLyricsPrefsSuite = @"com.82flex.amlyrics";
 static NSString *const kDateLyricsCurrentLineKey = @"CurrentLyricLine";
@@ -162,6 +166,14 @@ static BOOL DateLyricsIsMusicHost(void) {
     NSString *processName = [NSProcessInfo processInfo].processName;
     return [bundleIdentifier isEqualToString:@"com.apple.Music"] ||
            [processName isEqualToString:@"Music"];
+}
+
+static void DateLyricsUpdateMusicHeartbeat(void) {
+    if (DateLyricsIsMusicHost()) {
+        NSString *path = [GetLyricsRootPath() stringByAppendingPathComponent:@"heartbeat.txt"];
+        NSString *timestamp = [NSString stringWithFormat:@"%f", [[NSDate date] timeIntervalSince1970]];
+        [timestamp writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
 }
 
 static NSString *DateLyricsLocalCurrentLinePath(void) {
@@ -555,6 +567,7 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
 
 - (void)sendContentItemChanges:(NSArray<MRContentItem *> *)contentItems {
     %orig;
+    DateLyricsUpdateMusicHeartbeat();
     if (!gDateLyricsEnabled) return;
     dispatch_async(gLyricsQueue, ^{
         
@@ -926,7 +939,8 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     if (!label) return;
 
     NSDictionary *payload = gDateLyricsCurrentPayload ?: DateLyricsStoredPayload();
-    if (payload[@"text"]) {
+    NSString *lyric = payload[@"text"];
+    if (lyric.length > 0 && gDateLyricsEnabled) {
         CGRect bounds = self.bounds;
         CGRect frame = label.frame;
         frame.origin.x = 0.0;
@@ -976,6 +990,10 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     
     if (lyric.length == 0) return;
 
+    if (gDateLyricsForceLowercase) {
+        lyric = [lyric lowercaseString];
+    }
+
     NSString *displayText = lyric;
 
     NSAttributedString *attrDisplayText = nil;
@@ -986,9 +1004,14 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
         NSUInteger len = lenNum.unsignedIntegerValue;
         if (loc != NSNotFound && loc + len <= lyric.length) {
             NSMutableAttributedString *mAttrStr = [[NSMutableAttributedString alloc] initWithString:lyric];
-            UIColor *textColor = self.textColor ?: [UIColor whiteColor];
-            [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@(-3.0) range:NSMakeRange(loc, len)];
-            [mAttrStr addAttribute:NSStrokeColorAttributeName value:textColor range:NSMakeRange(loc, len)];
+            if (gDateLyricsHighlightStyle == 1) {  
+                NSString *syllable = [lyric substringWithRange:NSMakeRange(loc, len)];
+                [mAttrStr replaceCharactersInRange:NSMakeRange(loc, len) withString:[syllable uppercaseString]];
+            } else {  
+                UIColor *textColor = self.textColor ?: [UIColor whiteColor];
+                [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@(-gDateLyricsStrokeWidth) range:NSMakeRange(loc, len)];
+                [mAttrStr addAttribute:NSStrokeColorAttributeName value:textColor range:NSMakeRange(loc, len)];
+            }
             attrDisplayText = mAttrStr;
         }
     }
@@ -1036,7 +1059,10 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     CFPreferencesAppSynchronize((__bridge CFStringRef)@"com.shalamand3r.datelyrics");
 
     NSNumber *valEnabled = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("Enabled"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valForceLowercase = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("ForceLowercase"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valWord = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("WordHighlighting"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valStyle = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("HighlightStyle"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valStroke = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("StrokeWidth"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valScale = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("MinimumScale"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valPause = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("PauseTimeout"), CFSTR("com.shalamand3r.datelyrics"));
 
@@ -1047,14 +1073,20 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
         }
         if (prefs) {
             if (!valEnabled) valEnabled = prefs[@"Enabled"];
+            if (!valForceLowercase) valForceLowercase = prefs[@"ForceLowercase"];
             if (!valWord) valWord = prefs[@"WordHighlighting"];
+            if (!valStyle) valStyle = prefs[@"HighlightStyle"];
+            if (!valStroke) valStroke = prefs[@"StrokeWidth"];
             if (!valScale) valScale = prefs[@"MinimumScale"];
             if (!valPause) valPause = prefs[@"PauseTimeout"];
         }
     }
 
     gDateLyricsEnabled = valEnabled ? [valEnabled boolValue] : YES;
+    gDateLyricsForceLowercase = valForceLowercase ? [valForceLowercase boolValue] : NO;
     gDateLyricsWordHighlighting = valWord ? [valWord boolValue] : YES;
+    gDateLyricsHighlightStyle = valStyle ? [valStyle integerValue] : 0;
+    gDateLyricsStrokeWidth = valStroke ? [valStroke floatValue] : 3.0;
     gDateLyricsMinimumScale = valScale ? [valScale floatValue] : 0.55;
     gDateLyricsPauseTimeout = valPause ? [valPause doubleValue] : 7.0;
 
@@ -1098,5 +1130,6 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
         dlopen("/System/Library/PrivateFrameworks/AppSupport.framework/AppSupport", RTLD_NOW);
         %init(AMCrashPatcher);
         %init(DateLyricsPrimary);
+        DateLyricsUpdateMusicHeartbeat();
     }
 }

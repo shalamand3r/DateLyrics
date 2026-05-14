@@ -33,11 +33,31 @@
 
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>ForceLowercase</string>
+			<key>label</key>
+			<string>Force Lowercase</string>
+			<key>iconImageSystem</key>
+			<dict>
+				<key>name</key>
+				<string>textformat.size</string>
+			</dict>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Syllable Highlighting</string>
 			<key>footerText</key>
-			<string>Only affects songs with syllable or word timing data.</string>
+			<string>Only affects songs with syllable/word timing data.</string>
 		</dict>
 
 		<dict>
@@ -97,9 +117,15 @@
 			<key>label</key>
 			<string>Stroke Width</string>
 			<key>min</key>
-			<real>0.5</real>
+			<real>1.0</real>
 			<key>max</key>
-			<real>8.0</real>
+			<real>7.0</real>
+			<key>isSegmented</key>
+			<true/>
+			<key>segmentCount</key>
+			<integer>6</integer>
+			<key>snapsToSegment</key>
+			<true/>
 			<key>default</key>
 			<real>3.0</real>
 			<key>showValue</key>
@@ -116,9 +142,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Pause Timeout</string>
+			<string>Hide Lyrics Delay (Respring Required)</string>
 			<key>footerText</key>
-			<string>Seconds to wait after pausing before hiding lyrics (0 to 10).</string>
+			<string>Seconds to wait after music is paused before hiding lyrics.</string>
 		</dict>
 
 		<dict>
@@ -127,7 +153,7 @@
 			<key>key</key>
 			<string>PauseTimeout</string>
 			<key>label</key>
-			<string>Pause Timeout</string>
+			<string>Delay (Respring Required)</string>
 			<key>min</key>
 			<real>0.0</real>
 			<key>max</key>
@@ -154,7 +180,7 @@
 			<key>label</key>
 			<string>Line Scaling</string>
 			<key>footerText</key>
-			<string>Lower values let longer lyric lines shrink more aggressively.</string>
+			<string>Adjust text size to ensure long lyric lines fit the screen.</string>
 		</dict>
 
 		<dict>

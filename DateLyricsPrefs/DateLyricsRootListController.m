@@ -8,6 +8,11 @@ extern char **environ;
 static NSString *const kDateLyricsPrefsSuite = @"com.shalamand3r.datelyrics";
 static UIImage *_cachedGithubIcon = nil;
 
+@interface LSApplicationProxy : NSObject
+@property (nonatomic, readonly) NSURL *dataContainerURL;
++ (id)applicationProxyForIdentifier:(id)arg1;
+@end
+
 @interface DateLyricsRootListController ()
 @property (nonatomic, strong) UIImageView *headerImageView;
 @end
@@ -162,6 +167,7 @@ static UIImage *_cachedGithubIcon = nil;
 
     NSString *bundleID = @"com.shalamand3r.datelyrics";
     CFPreferencesSetAppValue((__bridge CFStringRef)@"Enabled", NULL, (__bridge CFStringRef)bundleID);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"ForceLowercase", NULL, (__bridge CFStringRef)bundleID);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"WordHighlighting", NULL, (__bridge CFStringRef)bundleID);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"HighlightStyle", NULL, (__bridge CFStringRef)bundleID);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"StrokeWidth", NULL, (__bridge CFStringRef)bundleID);
@@ -169,15 +175,38 @@ static UIImage *_cachedGithubIcon = nil;
     CFPreferencesSetAppValue((__bridge CFStringRef)@"PauseTimeout", NULL, (__bridge CFStringRef)bundleID);
     CFPreferencesAppSynchronize((__bridge CFStringRef)bundleID);
 
-    // Clear caches
-    NSString *lyricsRoot = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) firstObject];
-    lyricsRoot = [lyricsRoot stringByAppendingPathComponent:@"DateLyrics"];
-    [[NSFileManager defaultManager] removeItemAtPath:lyricsRoot error:nil];
-    [[NSFileManager defaultManager] createDirectoryAtPath:lyricsRoot withIntermediateDirectories:YES attributes:nil error:nil];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
 
-    // Reset bridge file
-    NSString *bridgePath = @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt";
-    [[NSFileManager defaultManager] removeItemAtPath:bridgePath error:nil];
+     
+    NSString *libraryPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) firstObject];
+    NSString *lyricsRoot = [libraryPath stringByAppendingPathComponent:@"DateLyrics"];
+    if ([fileManager fileExistsAtPath:lyricsRoot]) {
+        [fileManager removeItemAtPath:lyricsRoot error:nil];
+    }
+
+     
+    Class proxyClass = NSClassFromString(@"LSApplicationProxy");
+    if (proxyClass) {
+        LSApplicationProxy *proxy = [proxyClass applicationProxyForIdentifier:@"com.apple.Music"];
+        NSURL *containerURL = [proxy respondsToSelector:@selector(dataContainerURL)] ? proxy.dataContainerURL : nil;
+        if (containerURL) {
+            NSString *musicLyricsPath = [[containerURL.path stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"DateLyrics"];
+            if ([fileManager fileExistsAtPath:musicLyricsPath]) {
+                [fileManager removeItemAtPath:musicLyricsPath error:nil];
+            }
+        }
+    }
+
+     
+    NSArray *sharedPaths = @[
+        @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt",
+        @"/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.heartbeat.txt"
+    ];
+    for (NSString *path in sharedPaths) {
+        if ([fileManager fileExistsAtPath:path]) {
+            [fileManager removeItemAtPath:path error:nil];
+        }
+    }
 
     [self reload];
     
