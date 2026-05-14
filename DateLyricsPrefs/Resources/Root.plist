@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Configuration</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>Enabled</string>
+			<key>label</key>
+			<string>Enabled</string>
+			<key>iconImageSystem</key>
+			<dict>
+				<key>name</key>
+				<string>power</string>
+			</dict>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Syllable Highlighting</string>
+			<key>footerText</key>
+			<string>Only affects songs with syllable or word timing data.</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>id</key>
+			<string>WordHighlightingCell</string>
+			<key>key</key>
+			<string>WordHighlighting</string>
+			<key>label</key>
+			<string>Enabled</string>
+			<key>iconImageSystem</key>
+			<dict>
+				<key>name</key>
+				<string>textformat.alt</string>
+			</dict>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSegmentCell</string>
+			<key>id</key>
+			<string>HighlightStyleCell</string>
+			<key>default</key>
+			<integer>0</integer>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			<key>key</key>
+			<string>HighlightStyle</string>
+			<key>requires</key>
+			<string>WordHighlighting</string>
+			<key>validTitles</key>
+			<array>
+				<string>Stroke</string>
+				<string>Caps</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<integer>0</integer>
+				<integer>1</integer>
+			</array>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>key</key>
+			<string>StrokeWidth</string>
+			<key>label</key>
+			<string>Stroke Width</string>
+			<key>min</key>
+			<real>0.5</real>
+			<key>max</key>
+			<real>8.0</real>
+			<key>default</key>
+			<real>3.0</real>
+			<key>showValue</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			<key>requires</key>
+			<string>WordHighlighting</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Pause Timeout</string>
+			<key>footerText</key>
+			<string>Seconds to wait after pausing before hiding lyrics (0 to 10).</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>key</key>
+			<string>PauseTimeout</string>
+			<key>label</key>
+			<string>Pause Timeout</string>
+			<key>min</key>
+			<real>0.0</real>
+			<key>max</key>
+			<real>10.0</real>
+			<key>isSegmented</key>
+			<true/>
+			<key>segmentCount</key>
+			<integer>10</integer>
+			<key>snapsToSegment</key>
+			<true/>
+			<key>default</key>
+			<real>7.0</real>
+			<key>showValue</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Line Scaling</string>
+			<key>footerText</key>
+			<string>Lower values let longer lyric lines shrink more aggressively.</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>key</key>
+			<string>MinimumScale</string>
+			<key>label</key>
+			<string>Minimum Scale</string>
+			<key>min</key>
+			<real>0.3</real>
+			<key>max</key>
+			<real>1.0</real>
+			<key>default</key>
+			<real>0.55</real>
+			<key>showValue</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Actions</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Respring</string>
+			<key>action</key>
+			<string>respring</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Reset Settings</string>
+			<key>action</key>
+			<string>resetSettings</string>
+			<key>confirmation</key>
+			<dict>
+				<key>prompt</key>
+				<string>This will clear all DateLyrics caches and reset preferences. Are you sure?</string>
+				<key>title</key>
+				<string>Reset All</string>
+				<key>okTitle</key>
+				<string>Reset</string>
+				<key>cancelTitle</key>
+				<string>Cancel</string>
+			</dict>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Source Code</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>GitHub</string>
+			<key>id</key>
+			<string>GitHubCell</string>
+			<key>action</key>
+			<string>openGithub</string>
+		</dict>
+	</array>
+</dict>
+</plist>

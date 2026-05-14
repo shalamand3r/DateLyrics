@@ -133,7 +133,9 @@ static pthread_mutex_t gLyricsCacheMutex = PTHREAD_MUTEX_INITIALIZER;
 static MPNowPlayingInfoCenter *gNowPlayingInfoCenter = nil;
 
 static BOOL gDateLyricsEnabled = YES;
+static BOOL gDateLyricsWordHighlighting = YES;
 static CGFloat gDateLyricsMinimumScale = 0.55;
+static NSTimeInterval gDateLyricsPauseTimeout = 7.0;
 
 static NSHashTable<CSProminentSubtitleDateView *> *gDateLyricsDateViews = nil;
 static NSHashTable<UIView *> *gDateLyricsWidgetSlots = nil;
@@ -769,7 +771,7 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
     pthread_mutex_unlock(&gLyricsCacheMutex);
 
     if (playbackRate == 0.0) {
-        self.amlPauseTimer = [NSTimer scheduledTimerWithTimeInterval:7.0 target:self selector:@selector(amlPauseTimerFired:) userInfo:nil repeats:NO];
+        self.amlPauseTimer = [NSTimer scheduledTimerWithTimeInterval:gDateLyricsPauseTimeout target:self selector:@selector(amlPauseTimerFired:) userInfo:nil repeats:NO];
     } else {
         float timerRate = playbackRate;
         NSTimeInterval nextTrigger = -1.0;
@@ -979,7 +981,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     NSAttributedString *attrDisplayText = nil;
     NSNumber *locNum = payload[@"loc"];
     NSNumber *lenNum = payload[@"len"];
-    if (locNum && lenNum) {
+    if (gDateLyricsWordHighlighting && locNum && lenNum) {
         NSUInteger loc = locNum.unsignedIntegerValue;
         NSUInteger len = lenNum.unsignedIntegerValue;
         if (loc != NSNotFound && loc + len <= lyric.length) {
@@ -1033,21 +1035,28 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
 static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     CFPreferencesAppSynchronize((__bridge CFStringRef)@"com.shalamand3r.datelyrics");
 
-    CFPropertyListRef valEnabled = CFPreferencesCopyAppValue(CFSTR("Enabled"), CFSTR("com.shalamand3r.datelyrics"));
-    if (valEnabled) {
-        gDateLyricsEnabled = [(__bridge NSNumber *)valEnabled boolValue];
-        CFRelease(valEnabled);
-    } else {
-        gDateLyricsEnabled = YES;
+    NSNumber *valEnabled = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("Enabled"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valWord = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("WordHighlighting"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valScale = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("MinimumScale"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valPause = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("PauseTimeout"), CFSTR("com.shalamand3r.datelyrics"));
+
+    if (!valEnabled || !valPause) {
+        NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:@"/var/jb/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.plist"];
+        if (!prefs) {
+            prefs = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.plist"];
+        }
+        if (prefs) {
+            if (!valEnabled) valEnabled = prefs[@"Enabled"];
+            if (!valWord) valWord = prefs[@"WordHighlighting"];
+            if (!valScale) valScale = prefs[@"MinimumScale"];
+            if (!valPause) valPause = prefs[@"PauseTimeout"];
+        }
     }
 
-    CFPropertyListRef valScale = CFPreferencesCopyAppValue(CFSTR("MinimumScale"), CFSTR("com.shalamand3r.datelyrics"));
-    if (valScale) {
-        gDateLyricsMinimumScale = [(__bridge NSNumber *)valScale floatValue];
-        CFRelease(valScale);
-    } else {
-        gDateLyricsMinimumScale = 0.55;
-    }
+    gDateLyricsEnabled = valEnabled ? [valEnabled boolValue] : YES;
+    gDateLyricsWordHighlighting = valWord ? [valWord boolValue] : YES;
+    gDateLyricsMinimumScale = valScale ? [valScale floatValue] : 0.55;
+    gDateLyricsPauseTimeout = valPause ? [valPause doubleValue] : 7.0;
 
     if (!gDateLyricsEnabled) {
         if (DateLyricsIsSpringBoardHost()) {
