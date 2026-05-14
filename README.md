@@ -1,7 +1,7 @@
 # DateLyrics 🎵
 ### Apple Music lyrics in the Lock Screen date view!
 
-DateLyrics brings Apple Music lyrics to the lock screen date surface on modern rootless jailbreaks, with support for iOS 16 and later.
+DateLyrics brings Apple Music lyrics to the lock screen date widget view. DateLyrics also supports word-by-word lyric highlighting on supported songs.
 
 ---
 
@@ -23,7 +23,7 @@ DateLyrics brings Apple Music lyrics to the lock screen date surface on modern r
 
 ## Compatibility
 
-DateLyrics supports any **rootless jailbreak** on iOS 16.0 and later.
+DateLyrics supports any **rootless jailbreak** on iOS 16.0 and later. Users running semi-jailbreaks such as **NathanLR** will need to inject tweaks into the Music application in order for DateLyrics to work.
 
 Download the latest version from **[Releases](https://github.com/shalamand3r/DateLyrics/releases)**.
 
