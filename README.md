@@ -15,9 +15,9 @@ DateLyrics brings Apple Music lyrics to the lock screen date surface on modern r
 ---
 
 <p align="center">
-  <video src="demo.mp4" controls muted playsinline width="320">
-    Your browser does not support the video tag.
-  </video>
+  <a href="demo.mp4">
+    <img src="demo-thumb.jpg" width="320" alt="DateLyrics demo video">
+  </a>
 </p>
 
 ---
