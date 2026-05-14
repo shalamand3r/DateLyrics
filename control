@@ -3,9 +3,9 @@ Name: DateLyrics
 Version: 1.0
 Architecture: iphoneos-arm64
 Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 16.0)
-Description: Show Apple Music lyrics in the lock screen date area!
+Description: Apple Music lyrics in the Lock Screen date view!
 Icon: https://github.com/shalamand3r/shalamand3r.github.io/blob/main/icons/datelyrics.png?raw=true
 SileoDepiction: https://raw.githubusercontent.com/shalamand3r/shalamand3r.github.io/refs/heads/main/depictions/datelyrics.json
-Maintainer: 82flex/shalamand3r
-Author: 82flex/shalamand3r
+Maintainer: shalamand3r
+Author: shalamand3r
 Section: Tweaks
