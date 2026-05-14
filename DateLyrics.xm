@@ -914,6 +914,17 @@ static void DateLyricsPrepareAndApplyDateLabel(_UIAnimatingLabel *label) {
     [label _amlApplyCurrentLyric];
 }
 
+static BOOL DateLyricsLabelHasResidualLyricState(_UIAnimatingLabel *label) {
+    if (![label isKindOfClass:UILabel.class]) return NO;
+    if ([objc_getAssociatedObject(label, kDateLyricsLabelShowingLyricKey) boolValue]) return YES;
+
+    NSString *lastLyric = objc_getAssociatedObject(label, @selector(_amlApplyCurrentLyric));
+    if (![lastLyric isKindOfClass:NSString.class] || lastLyric.length == 0) return NO;
+
+    NSString *currentString = label.attributedText.string ?: label.text;
+    return [currentString isEqualToString:lastLyric];
+}
+
 static void DateLyricsResetHybridVisibilityIfNeeded(CSProminentSubtitleDateView *dateView) {
     if (![dateView isKindOfClass:UIView.class]) return;
     if (![objc_getAssociatedObject(dateView, kDateLyricsForcedWidgetDateVisibleKey) boolValue]) return;
@@ -925,10 +936,11 @@ static void DateLyricsResetHybridVisibilityIfNeeded(CSProminentSubtitleDateView 
 
 static void DateLyricsRestoreSystemDateLabel(_UIAnimatingLabel *label) {
     if (![label isKindOfClass:UILabel.class]) return;
-    if (![objc_getAssociatedObject(label, kDateLyricsLabelShowingLyricKey) boolValue]) return;
+    if (!DateLyricsLabelHasResidualLyricState(label)) return;
 
     CSProminentSubtitleDateView *dateView = DateLyricsFindAncestorDateView(label);
     objc_setAssociatedObject(label, kDateLyricsLabelShowingLyricKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    objc_setAssociatedObject(label, @selector(_amlApplyCurrentLyric), nil, OBJC_ASSOCIATION_ASSIGN);
     if (!dateView) return;
 
     label.text = nil;
@@ -1095,16 +1107,19 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     if (attrDisplayText) {
         contentChanged = ![self.attributedText isEqualToAttributedString:attrDisplayText];
     } else {
-        contentChanged = ![self.text isEqualToString:displayText];
+        contentChanged = self.attributedText != nil || ![self.text isEqualToString:displayText];
     }
 
-    static const void *kDateLyricsLastPlainTextKey = &kDateLyricsLastPlainTextKey;
-    objc_setAssociatedObject(self, kDateLyricsLastPlainTextKey, displayText, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    objc_setAssociatedObject(self, @selector(_amlApplyCurrentLyric), displayText, OBJC_ASSOCIATION_COPY_NONATOMIC);
     objc_setAssociatedObject(self, kDateLyricsLabelShowingLyricKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
     if (contentChanged) {
-        if (attrDisplayText) self.attributedText = attrDisplayText;
-        else self.text = displayText;
+        if (attrDisplayText) {
+            self.attributedText = attrDisplayText;
+        } else {
+            self.attributedText = nil;
+            self.text = displayText;
+        }
     }
 }
 
