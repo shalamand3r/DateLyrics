@@ -12,10 +12,7 @@ typedef void (^ICURLSessionCompletionHandler)(ICURLResponse *, NSError *);
 
 @interface MSVLyricsLine : NSObject
 @property (assign, nonatomic) NSTimeInterval startTime;
-@property (assign, nonatomic) NSTimeInterval endTime;
 @property (copy, nonatomic) NSAttributedString *lyricsText;
-@property (nonatomic, strong) MSVLyricsLine *nextLine;
-- (BOOL)containsTimeOffset:(NSTimeInterval)arg1 withErrorMargin:(NSTimeInterval)arg2;
 @end
 
 @interface ICMusicKitRequestContext : NSObject
@@ -103,7 +100,6 @@ typedef void (^ICURLSessionCompletionHandler)(ICURLResponse *, NSError *);
 @property (nonatomic, assign) NSTimeInterval end;
 @property (nonatomic, copy) NSString *text;
 @property (nonatomic, copy) NSString *separatorBefore;
-@property (nonatomic, assign) BOOL background;
 @end
 
 @interface DateLyricsTimedLine : NSObject
@@ -134,6 +130,9 @@ static NSMutableDictionary<NSNumber *, NSArray<MSVLyricsLine *> *> *gLyricsCache
 static NSMutableDictionary<NSNumber *, NSArray<DateLyricsTimedLine *> *> *gWordLyricsCache = nil;
 static pthread_mutex_t gLyricsCacheMutex = PTHREAD_MUTEX_INITIALIZER;
 static MPNowPlayingInfoCenter *gNowPlayingInfoCenter = nil;
+
+static BOOL gDateLyricsEnabled = YES;
+static CGFloat gDateLyricsMinimumScale = 0.55;
 
 static NSHashTable<CSProminentSubtitleDateView *> *gDateLyricsDateViews = nil;
 static NSHashTable<UIView *> *gDateLyricsWidgetSlots = nil;
@@ -300,7 +299,6 @@ static NSString *GetLyricsRootPath(void) {
 @property (nonatomic, strong) NSMutableString *pendingSeparator;
 @property (nonatomic, strong) NSMutableString *currentSpanText;
 @property (nonatomic, assign) BOOL insideParagraph;
-@property (nonatomic, assign) NSInteger backgroundDepth;
 @end
 
 @implementation DateLyricsWordTTMLParserDelegate
@@ -323,16 +321,12 @@ static NSString *GetLyricsRootPath(void) {
         self.currentWords = [NSMutableArray array];
         [self.pendingSeparator setString:@""];
     } else if (self.insideParagraph && [elementName isEqualToString:@"span"]) {
-        NSString *role = attributeDict[@"ttm:role"] ?: attributeDict[@"role"];
         BOOL hasTiming = attributeDict[@"begin"] != nil || attributeDict[@"end"] != nil;
-        if ([role isEqualToString:@"x-bg"]) {
-            self.backgroundDepth += 1;
-        } else if (hasTiming) {
+        if (hasTiming) {
             DateLyricsTimedWord *word = [DateLyricsTimedWord new];
             word.begin = DateLyricsParseTimeString(attributeDict[@"begin"]);
             word.end = DateLyricsParseTimeString(attributeDict[@"end"]);
             word.separatorBefore = [self.pendingSeparator copy] ?: @"";
-            word.background = self.backgroundDepth > 0;
             [self.currentWords addObject:word];
             self.currentSpanText = [NSMutableString string];
             [self.pendingSeparator setString:@""];
@@ -357,8 +351,6 @@ static NSString *GetLyricsRootPath(void) {
                 word.text = [self.currentSpanText copy];
             }
             self.currentSpanText = nil;
-        } else if (self.backgroundDepth > 0) {
-            self.backgroundDepth -= 1;
         }
     } else if ([elementName isEqualToString:@"p"] && self.currentLine) {
         NSMutableString *fullText = [NSMutableString string];
@@ -379,7 +371,6 @@ static NSString *GetLyricsRootPath(void) {
         self.currentWords = nil;
         self.insideParagraph = NO;
         [self.pendingSeparator setString:@""];
-        self.backgroundDepth = 0;
     }
 }
 
@@ -547,6 +538,7 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
 
 - (void)sendContentItemChanges:(NSArray<MRContentItem *> *)contentItems {
     %orig;
+    if (!gDateLyricsEnabled) return;
     dispatch_async(gLyricsQueue, ^{
         
         MRContentItem *item = self.nowPlayingContentItem;
@@ -867,6 +859,8 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     NSDictionary *payload = gDateLyricsCurrentPayload ?: DateLyricsStoredPayload();
     BOOL hasLyric = [payload[@"text"] isKindOfClass:NSString.class];
 
+    if (!gDateLyricsEnabled) hasLyric = NO;
+
     if (!hasLyric) {
         if ([objc_getAssociatedObject(dateView, kDateLyricsForcedWidgetDateVisibleKey) boolValue]) {
             dateView.hidden = YES;
@@ -941,6 +935,9 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
 
 %new
 - (void)_amlApplyCurrentLyric {
+    if (!gDateLyricsEnabled) {
+        return;
+    }
     NSDictionary *payload = gDateLyricsCurrentPayload ?: DateLyricsStoredPayload();
     NSString *lyric = payload[@"text"];
     
@@ -965,7 +962,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
 
     self.numberOfLines = 1;
     self.adjustsFontSizeToFitWidth = YES;
-    self.minimumScaleFactor = 0.55;
+    self.minimumScaleFactor = gDateLyricsMinimumScale;
     self.lineBreakMode = NSLineBreakByClipping;
 
     BOOL contentChanged = NO;
@@ -1002,6 +999,35 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
 
 %end
 
+static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+    CFPreferencesAppSynchronize((__bridge CFStringRef)@"com.shalamand3r.datelyrics");
+
+    CFPropertyListRef valEnabled = CFPreferencesCopyAppValue(CFSTR("Enabled"), CFSTR("com.shalamand3r.datelyrics"));
+    if (valEnabled) {
+        gDateLyricsEnabled = [(__bridge NSNumber *)valEnabled boolValue];
+        CFRelease(valEnabled);
+    } else {
+        gDateLyricsEnabled = YES;
+    }
+
+    CFPropertyListRef valScale = CFPreferencesCopyAppValue(CFSTR("MinimumScale"), CFSTR("com.shalamand3r.datelyrics"));
+    if (valScale) {
+        gDateLyricsMinimumScale = [(__bridge NSNumber *)valScale floatValue];
+        CFRelease(valScale);
+    } else {
+        gDateLyricsMinimumScale = 0.55;
+    }
+
+    if (!gDateLyricsEnabled) {
+        if (DateLyricsIsSpringBoardHost()) {
+            gDateLyricsCurrentPayload = nil;
+            DateLyricsApplyCurrentLineToAllCoverSheets();
+        } else if (DateLyricsIsMusicHost()) {
+            DateLyricsPublishPayload(nil);
+        }
+    }
+}
+
 %ctor {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -1011,8 +1037,11 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
         gLyricsTaskQueue = [NSMutableArray array];
         gPendingLyricsIDs = [NSMutableSet set];
     });
-    BOOL isSpringBoardHost =
-        DateLyricsIsSpringBoardHost();
+
+    DateLyricsReloadPrefs(NULL, NULL, NULL, NULL, NULL);
+    CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, DateLyricsReloadPrefs, CFSTR("com.shalamand3r.datelyrics/ReloadPrefs"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+
+    BOOL isSpringBoardHost = DateLyricsIsSpringBoardHost();
 
     if (isSpringBoardHost) {
         dlopen("/System/Library/PrivateFrameworks/AppSupport.framework/AppSupport", RTLD_NOW);
