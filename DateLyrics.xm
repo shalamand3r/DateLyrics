@@ -43,6 +43,7 @@ typedef void (^ICURLSessionCompletionHandler)(ICURLResponse *, NSError *);
 @interface MPNowPlayingContentItem : MPContentItem
 @property (assign, nonatomic) NSInteger storeID;
 @property (nonatomic, strong) NSTimer *amlTimer;
+@property (nonatomic, strong) NSTimer *amlPauseTimer;
 @property (nonatomic, copy) NSString *amlCurrentLyricTitle;
 @property (nonatomic, copy) NSString *amlCurrentPayloadSignature;
 @property (assign, nonatomic) float playbackRate;
@@ -217,10 +218,24 @@ static void DateLyricsApplyCurrentLineToAllCoverSheets(void) {
     if (gDateLyricsDateViews) {
         for (CSProminentSubtitleDateView *dateView in gDateLyricsDateViews) {
             if (![dateView isKindOfClass:UIView.class]) continue;
-            if ([dateView respondsToSelector:@selector(_updateLabel)]) {
-                [dateView performSelector:@selector(_updateLabel)];
-            } else {
-                [dateView setNeedsLayout];
+            
+            BOOL didForceUpdate = NO;
+            if ([dateView respondsToSelector:@selector(setDate:)] && [dateView respondsToSelector:@selector(date)]) {
+                id realDate = [dateView performSelector:@selector(date)];
+                if (realDate) {
+                    NSDate *dummyDate = [NSDate dateWithTimeIntervalSince1970:0];
+                    [dateView performSelector:@selector(setDate:) withObject:dummyDate];
+                    [dateView performSelector:@selector(setDate:) withObject:realDate];
+                    didForceUpdate = YES;
+                }
+            }
+            
+            if (!didForceUpdate) {
+                if ([dateView respondsToSelector:@selector(_updateLabel)]) {
+                    [dateView performSelector:@selector(_updateLabel)];
+                } else {
+                    [dateView setNeedsLayout];
+                }
             }
         }
     }
@@ -602,13 +617,23 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
 %hook MPNowPlayingContentItem
 
 %property (nonatomic, strong) NSTimer *amlTimer;
+%property (nonatomic, strong) NSTimer *amlPauseTimer;
 %property (nonatomic, copy) NSString *amlCurrentLyricTitle;
 %property (nonatomic, copy) NSString *amlCurrentPayloadSignature;
 
 - (void)dealloc {
     [self.amlTimer invalidate];
     self.amlTimer = nil;
+    [self.amlPauseTimer invalidate];
+    self.amlPauseTimer = nil;
     %orig;
+}
+
+%new
+- (void)amlPauseTimerFired:(NSTimer *)timer {
+    self.amlCurrentLyricTitle = nil;
+    self.amlCurrentPayloadSignature = nil;
+    DateLyricsPublishPayload(nil);
 }
 
 %new
@@ -665,6 +690,8 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
     %orig;
     [self.amlTimer invalidate];
     self.amlTimer = nil;
+    [self.amlPauseTimer invalidate];
+    self.amlPauseTimer = nil;
 
     NSInteger storeID = 0;
     if ([self respondsToSelector:@selector(storeID)]) {
@@ -741,24 +768,28 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
     }
     pthread_mutex_unlock(&gLyricsCacheMutex);
 
-    float timerRate = MAX(0.1f, playbackRate);
-    NSTimeInterval nextTrigger = -1.0;
-    if (nextWordStart > elapsedTime) {
-        nextTrigger = nextWordStart;
-    }
-    if (nextLineStart > elapsedTime) {
-        if (nextTrigger < 0 || nextLineStart < nextTrigger) {
-            nextTrigger = nextLineStart;
-        }
-    }
-
-    if (nextTrigger > elapsedTime) {
-        self.amlTimer = [NSTimer scheduledTimerWithTimeInterval:(nextTrigger - elapsedTime) / timerRate
-                                                         target:self selector:@selector(amlTimerFired:)
-                                                       userInfo:nil repeats:NO];
+    if (playbackRate == 0.0) {
+        self.amlPauseTimer = [NSTimer scheduledTimerWithTimeInterval:7.0 target:self selector:@selector(amlPauseTimerFired:) userInfo:nil repeats:NO];
     } else {
-        self.amlTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(amlTimerFired:)
-                                                       userInfo:nil repeats:NO];
+        float timerRate = playbackRate;
+        NSTimeInterval nextTrigger = -1.0;
+        if (nextWordStart > elapsedTime) {
+            nextTrigger = nextWordStart;
+        }
+        if (nextLineStart > elapsedTime) {
+            if (nextTrigger < 0 || nextLineStart < nextTrigger) {
+                nextTrigger = nextLineStart;
+            }
+        }
+
+        if (nextTrigger > elapsedTime) {
+            self.amlTimer = [NSTimer scheduledTimerWithTimeInterval:(nextTrigger - elapsedTime) / timerRate
+                                                             target:self selector:@selector(amlTimerFired:)
+                                                           userInfo:nil repeats:NO];
+        } else {
+            self.amlTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(amlTimerFired:)
+                                                           userInfo:nil repeats:NO];
+        }
     }
 
     NSDictionary *payload = wordPayload ?: DateLyricsMakePayload(title, NSMakeRange(NSNotFound, 0));
@@ -963,7 +994,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     self.numberOfLines = 1;
     self.adjustsFontSizeToFitWidth = YES;
     self.minimumScaleFactor = gDateLyricsMinimumScale;
-    self.lineBreakMode = NSLineBreakByClipping;
+    self.lineBreakMode = NSLineBreakByTruncatingTail;
 
     BOOL contentChanged = NO;
     if (attrDisplayText) {
