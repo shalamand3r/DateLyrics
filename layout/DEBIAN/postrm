@@ -15,10 +15,6 @@ if [ "$1" == "remove" ] || [ "$1" == "purge" ]; then
         rm -f /var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt
         echo " ✅ Removed lyrics bridge file"
     fi
-
-    if [ -f /var/mobile/Library/Preferences/com.shalamand3r.datelyrics.heartbeat.txt ]; then
-        rm -f /var/mobile/Library/Preferences/com.shalamand3r.datelyrics.heartbeat.txt
-    fi
     
     if [ -d "/var/mobile/Containers/Data/Application" ]; then
         for container in /var/mobile/Containers/Data/Application/*; do

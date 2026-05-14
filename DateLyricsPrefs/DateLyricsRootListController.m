@@ -199,8 +199,7 @@ static UIImage *_cachedGithubIcon = nil;
 
      
     NSArray *sharedPaths = @[
-        @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt",
-        @"/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.heartbeat.txt"
+        @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt"
     ];
     for (NSString *path in sharedPaths) {
         if ([fileManager fileExistsAtPath:path]) {

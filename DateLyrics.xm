@@ -168,14 +168,6 @@ static BOOL DateLyricsIsMusicHost(void) {
            [processName isEqualToString:@"Music"];
 }
 
-static void DateLyricsUpdateMusicHeartbeat(void) {
-    if (DateLyricsIsMusicHost()) {
-        NSString *path = [GetLyricsRootPath() stringByAppendingPathComponent:@"heartbeat.txt"];
-        NSString *timestamp = [NSString stringWithFormat:@"%f", [[NSDate date] timeIntervalSince1970]];
-        [timestamp writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    }
-}
-
 static NSString *DateLyricsLocalCurrentLinePath(void) {
     return [GetLyricsRootPath() stringByAppendingPathComponent:@"current-line.txt"];
 }
@@ -567,7 +559,6 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
 
 - (void)sendContentItemChanges:(NSArray<MRContentItem *> *)contentItems {
     %orig;
-    DateLyricsUpdateMusicHeartbeat();
     if (!gDateLyricsEnabled) return;
     dispatch_async(gLyricsQueue, ^{
         
@@ -1130,6 +1121,5 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
         dlopen("/System/Library/PrivateFrameworks/AppSupport.framework/AppSupport", RTLD_NOW);
         %init(AMCrashPatcher);
         %init(DateLyricsPrimary);
-        DateLyricsUpdateMusicHeartbeat();
     }
 }
