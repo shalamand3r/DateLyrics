@@ -136,7 +136,10 @@ static pthread_mutex_t gLyricsCacheMutex = PTHREAD_MUTEX_INITIALIZER;
 static MPNowPlayingInfoCenter *gNowPlayingInfoCenter = nil;
 
 static NSHashTable<CSProminentSubtitleDateView *> *gDateLyricsDateViews = nil;
+static NSHashTable<UIView *> *gDateLyricsWidgetSlots = nil;
 static NSDictionary *gDateLyricsCurrentPayload = nil;
+
+static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot);
 static const void *kDateLyricsForcedWidgetDateVisibleKey = &kDateLyricsForcedWidgetDateVisibleKey;
 
 static NSString *const kDateLyricsPrefsSuite = @"com.82flex.amlyrics";
@@ -212,13 +215,20 @@ static NSDictionary *DateLyricsDeserializePayloadString(NSString *string) {
 }
 
 static void DateLyricsApplyCurrentLineToAllCoverSheets(void) {
-    if (!gDateLyricsDateViews) return;
-    for (CSProminentSubtitleDateView *dateView in gDateLyricsDateViews) {
-        if (![dateView isKindOfClass:UIView.class]) continue;
-        if ([dateView respondsToSelector:@selector(_updateLabel)]) {
-            [dateView performSelector:@selector(_updateLabel)];
-        } else {
-            [dateView setNeedsLayout];
+    if (gDateLyricsDateViews) {
+        for (CSProminentSubtitleDateView *dateView in gDateLyricsDateViews) {
+            if (![dateView isKindOfClass:UIView.class]) continue;
+            if ([dateView respondsToSelector:@selector(_updateLabel)]) {
+                [dateView performSelector:@selector(_updateLabel)];
+            } else {
+                [dateView setNeedsLayout];
+            }
+        }
+    }
+    if (gDateLyricsWidgetSlots) {
+        for (UIView *widgetSlot in gDateLyricsWidgetSlots) {
+            if (![widgetSlot isKindOfClass:UIView.class]) continue;
+            DateLyricsUpdateWidgetDateView(widgetSlot);
         }
     }
 }
@@ -847,7 +857,7 @@ static void DateLyricsPrepareAndApplyDateLabel(_UIAnimatingLabel *label) {
     [label _amlApplyCurrentLyric];
 }
 
-static void DateLyricsUpdateWidgetDateView(CSProminentEmptyElementView *widgetSlot) {
+static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     if (![widgetSlot isKindOfClass:UIView.class]) return;
     if (!DateLyricsViewContainsClassNamed(widgetSlot, @"CHUISWidgetHostViewControllerView")) return;
 
@@ -915,11 +925,13 @@ static void DateLyricsUpdateWidgetDateView(CSProminentEmptyElementView *widgetSl
 
 - (void)didMoveToWindow {
     %orig;
+    if (gDateLyricsWidgetSlots) [gDateLyricsWidgetSlots addObject:self];
     DateLyricsUpdateWidgetDateView(self);
 }
 
 - (void)layoutSubviews {
     %orig;
+    if (gDateLyricsWidgetSlots) [gDateLyricsWidgetSlots addObject:self];
     DateLyricsUpdateWidgetDateView(self);
 }
 
@@ -964,21 +976,9 @@ static void DateLyricsUpdateWidgetDateView(CSProminentEmptyElementView *widgetSl
     }
 
     static const void *kDateLyricsLastPlainTextKey = &kDateLyricsLastPlainTextKey;
-    NSString *lastPlainText = objc_getAssociatedObject(self, kDateLyricsLastPlainTextKey);
-    BOOL isLineChange = ![displayText isEqualToString:lastPlainText];
     objc_setAssociatedObject(self, kDateLyricsLastPlainTextKey, displayText, OBJC_ASSOCIATION_COPY_NONATOMIC);
 
     if (contentChanged) {
-        BOOL canAnimate = self.window != nil && (self.text.length > 0 || self.attributedText.length > 0);
-        
-        if (canAnimate && isLineChange) {
-            CATransition *animation = [CATransition animation];
-            animation.duration = 0.3;
-            animation.type = kCATransitionFade;
-            animation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-            [self.layer addAnimation:animation forKey:@"amlTextFade"];
-        }
-
         if (attrDisplayText) self.attributedText = attrDisplayText;
         else self.text = displayText;
     }
@@ -1017,6 +1017,7 @@ static void DateLyricsUpdateWidgetDateView(CSProminentEmptyElementView *widgetSl
     if (isSpringBoardHost) {
         dlopen("/System/Library/PrivateFrameworks/AppSupport.framework/AppSupport", RTLD_NOW);
         gDateLyricsDateViews = [NSHashTable weakObjectsHashTable];
+        gDateLyricsWidgetSlots = [NSHashTable weakObjectsHashTable];
         DateLyricsPersistCurrentLineSharedState(nil);
         gDateLyricsCurrentPayload = nil;
         
