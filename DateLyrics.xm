@@ -147,6 +147,8 @@ static NSDictionary *gDateLyricsCurrentPayload = nil;
 static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot);
 static const void *kDateLyricsForcedWidgetDateVisibleKey = &kDateLyricsForcedWidgetDateVisibleKey;
 static const void *kDateLyricsOriginalHiddenKey = &kDateLyricsOriginalHiddenKey;
+static const void *kDateLyricsRestoringStockDateKey = &kDateLyricsRestoringStockDateKey;
+static const void *kDateLyricsLabelShowingLyricKey = &kDateLyricsLabelShowingLyricKey;
 
 static NSString *const kDateLyricsPrefsSuite = @"com.82flex.amlyrics";
 static NSString *const kDateLyricsCurrentLineKey = @"CurrentLyricLine";
@@ -851,6 +853,18 @@ static CSProminentSubtitleDateView *DateLyricsFindSiblingDateView(UIView *view) 
     return nil;
 }
 
+static CSProminentSubtitleDateView *DateLyricsFindAncestorDateView(UIView *view) {
+    Class dateClass = NSClassFromString(@"CSProminentSubtitleDateView");
+    UIView *currentView = view;
+    while ([currentView isKindOfClass:UIView.class]) {
+        if ([currentView isKindOfClass:dateClass]) {
+            return (CSProminentSubtitleDateView *)currentView;
+        }
+        currentView = currentView.superview;
+    }
+    return nil;
+}
+
 static BOOL DateLyricsWidgetSlotMatchesDateSlot(UIView *widgetSlot, UIView *dateView) {
     if (![widgetSlot isKindOfClass:UIView.class] || ![dateView isKindOfClass:UIView.class]) return NO;
 
@@ -866,6 +880,20 @@ static BOOL DateLyricsWidgetSlotMatchesDateSlot(UIView *widgetSlot, UIView *date
 
     return CGRectGetMinY(slotFrame) <= CGRectGetMaxY(dateFrame) + 4.0 &&
            CGRectGetHeight(slotFrame) <= CGRectGetHeight(dateFrame) + 12.0;
+}
+
+static UIView *DateLyricsFindMatchingWidgetSlotForDateView(UIView *dateView) {
+    UIView *containerView = dateView.superview;
+    if (![containerView isKindOfClass:UIView.class] || ![dateView isKindOfClass:UIView.class]) return nil;
+
+    Class emptyElementClass = NSClassFromString(@"CSProminentEmptyElementView");
+    for (UIView *subview in containerView.subviews) {
+        if (![subview isKindOfClass:emptyElementClass]) continue;
+        if (!DateLyricsViewContainsClassNamed(subview, @"CHUISWidgetHostViewControllerView")) continue;
+        if (!DateLyricsWidgetSlotMatchesDateSlot(subview, dateView)) continue;
+        return subview;
+    }
+    return nil;
 }
 
 static void DateLyricsSetWidgetDateSlotHidden(UIView *containerView, UIView *dateView, BOOL hidden) {
@@ -884,6 +912,46 @@ static void DateLyricsSetWidgetDateSlotHidden(UIView *containerView, UIView *dat
 static void DateLyricsPrepareAndApplyDateLabel(_UIAnimatingLabel *label) {
     if (!label) return;
     [label _amlApplyCurrentLyric];
+}
+
+static void DateLyricsResetHybridVisibilityIfNeeded(CSProminentSubtitleDateView *dateView) {
+    if (![dateView isKindOfClass:UIView.class]) return;
+    if (![objc_getAssociatedObject(dateView, kDateLyricsForcedWidgetDateVisibleKey) boolValue]) return;
+    if (DateLyricsFindMatchingWidgetSlotForDateView(dateView)) return;
+
+    dateView.hidden = NO;
+    objc_setAssociatedObject(dateView, kDateLyricsForcedWidgetDateVisibleKey, nil, OBJC_ASSOCIATION_ASSIGN);
+}
+
+static void DateLyricsRestoreSystemDateLabel(_UIAnimatingLabel *label) {
+    if (![label isKindOfClass:UILabel.class]) return;
+    if (![objc_getAssociatedObject(label, kDateLyricsLabelShowingLyricKey) boolValue]) return;
+
+    CSProminentSubtitleDateView *dateView = DateLyricsFindAncestorDateView(label);
+    objc_setAssociatedObject(label, kDateLyricsLabelShowingLyricKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    if (!dateView) return;
+
+    label.text = nil;
+    label.attributedText = nil;
+    label.hidden = NO;
+    dateView.hidden = NO;
+
+    objc_setAssociatedObject(dateView, kDateLyricsRestoringStockDateKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if ([dateView respondsToSelector:@selector(_updateLabel)]) {
+        [dateView performSelector:@selector(_updateLabel)];
+    }
+    if ([dateView respondsToSelector:@selector(setDate:)] && [dateView respondsToSelector:@selector(date)]) {
+        id currentDate = [dateView performSelector:@selector(date)];
+        if (currentDate) {
+            NSDate *dummyDate = [NSDate dateWithTimeIntervalSince1970:0];
+            [dateView performSelector:@selector(setDate:) withObject:dummyDate];
+            [dateView performSelector:@selector(setDate:) withObject:currentDate];
+        }
+    }
+    [label setNeedsLayout];
+    [dateView setNeedsLayout];
+    [dateView layoutIfNeeded];
+    objc_setAssociatedObject(dateView, kDateLyricsRestoringStockDateKey, nil, OBJC_ASSOCIATION_ASSIGN);
 }
 
 static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
@@ -919,6 +987,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
 - (void)didMoveToWindow {
     %orig;
     if (gDateLyricsDateViews) [gDateLyricsDateViews addObject:self];
+    DateLyricsResetHybridVisibilityIfNeeded(self);
     DateLyricsPrepareAndApplyDateLabel(DateLyricsFindAnimatingLabel(self));
     [self setNeedsLayout];
 }
@@ -929,6 +998,8 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     _UIAnimatingLabel *label = DateLyricsFindAnimatingLabel(self);
     if (!label) return;
 
+    DateLyricsResetHybridVisibilityIfNeeded(self);
+
     NSDictionary *payload = gDateLyricsCurrentPayload ?: DateLyricsStoredPayload();
     NSString *lyric = payload[@"text"];
     if (lyric.length > 0 && gDateLyricsEnabled) {
@@ -938,16 +1009,20 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
         frame.size.width = bounds.size.width;
         label.frame = frame;
         [label _amlApplyCurrentLyric];
+    } else {
+        DateLyricsRestoreSystemDateLabel(label);
     }
 }
 
 - (void)_updateLabel {
     %orig;
+    if ([objc_getAssociatedObject(self, kDateLyricsRestoringStockDateKey) boolValue]) return;
     DateLyricsPrepareAndApplyDateLabel(DateLyricsFindAnimatingLabel(self));
 }
 
 - (void)setDate:(id)date {
     %orig;
+    if ([objc_getAssociatedObject(self, kDateLyricsRestoringStockDateKey) boolValue]) return;
     DateLyricsPrepareAndApplyDateLabel(DateLyricsFindAnimatingLabel(self));
 }
 
@@ -974,12 +1049,16 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
 %new
 - (void)_amlApplyCurrentLyric {
     if (!gDateLyricsEnabled) {
+        DateLyricsRestoreSystemDateLabel(self);
         return;
     }
     NSDictionary *payload = gDateLyricsCurrentPayload ?: DateLyricsStoredPayload();
     NSString *lyric = payload[@"text"];
     
-    if (lyric.length == 0) return;
+    if (lyric.length == 0) {
+        DateLyricsRestoreSystemDateLabel(self);
+        return;
+    }
 
     if (gDateLyricsForceLowercase) {
         lyric = [lyric lowercaseString];
@@ -1021,6 +1100,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
 
     static const void *kDateLyricsLastPlainTextKey = &kDateLyricsLastPlainTextKey;
     objc_setAssociatedObject(self, kDateLyricsLastPlainTextKey, displayText, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    objc_setAssociatedObject(self, kDateLyricsLabelShowingLyricKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
     if (contentChanged) {
         if (attrDisplayText) self.attributedText = attrDisplayText;
