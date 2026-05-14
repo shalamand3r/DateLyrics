@@ -14,6 +14,14 @@ DateLyrics brings Apple Music lyrics to the lock screen date surface on modern r
 
 ---
 
+<p align="center">
+  <video src="demo.mp4" controls muted playsinline width="320">
+    Your browser does not support the video tag.
+  </video>
+</p>
+
+---
+
 ## Compatibility
 
 DateLyrics supports any **rootless jailbreak** on iOS 16.0 and later.
