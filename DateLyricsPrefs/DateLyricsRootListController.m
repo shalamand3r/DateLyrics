@@ -250,16 +250,25 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 
 	UITableView *tableView = [self table];
 	tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
-	UIView *titleView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 260, 24)];
+	UIView *titleView = [[UIView alloc] init];
 	titleView.backgroundColor = [UIColor clearColor];
-	UILabel *previewLabel = [[UILabel alloc] initWithFrame:titleView.bounds];
-	previewLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	UILabel *previewLabel = [[UILabel alloc] init];
+	previewLabel.translatesAutoresizingMaskIntoConstraints = NO;
 	previewLabel.textAlignment = NSTextAlignmentCenter;
 	previewLabel.numberOfLines = 1;
 	previewLabel.adjustsFontSizeToFitWidth = YES;
 	previewLabel.minimumScaleFactor = 0.55;
 	previewLabel.lineBreakMode = NSLineBreakByTruncatingTail;
 	[titleView addSubview:previewLabel];
+
+	[NSLayoutConstraint activateConstraints:@[
+		[previewLabel.topAnchor constraintEqualToAnchor:titleView.topAnchor],
+		[previewLabel.bottomAnchor constraintEqualToAnchor:titleView.bottomAnchor],
+		[previewLabel.leadingAnchor constraintEqualToAnchor:titleView.leadingAnchor],
+		[previewLabel.trailingAnchor constraintEqualToAnchor:titleView.trailingAnchor],
+		[titleView.widthAnchor constraintLessThanOrEqualToConstant:200]
+	]];
+
 	self.mainPreviewLabel = previewLabel;
 	self.navigationItem.titleView = titleView;
 	[self amlRefreshMainPreview];
@@ -486,10 +495,11 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 	[super viewDidLoad];
 	self.table.rowHeight = 44.0;
 
-	UIView *titleView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 260, 38)];
+	UIView *titleView = [[UIView alloc] init];
 	titleView.backgroundColor = [UIColor clearColor];
 
-	UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 260, 14)];
+	UILabel *titleLabel = [[UILabel alloc] init];
+	titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
 	titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
 	titleLabel.textAlignment = NSTextAlignmentCenter;
 	titleLabel.adjustsFontSizeToFitWidth = YES;
@@ -497,7 +507,8 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 	[titleView addSubview:titleLabel];
 	self.titleLabel = titleLabel;
 
-	UILabel *previewLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 14, 260, 22)];
+	UILabel *previewLabel = [[UILabel alloc] init];
+	previewLabel.translatesAutoresizingMaskIntoConstraints = NO;
 	previewLabel.textAlignment = NSTextAlignmentCenter;
 	previewLabel.numberOfLines = 1;
 	previewLabel.adjustsFontSizeToFitWidth = YES;
@@ -505,6 +516,22 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 	previewLabel.lineBreakMode = NSLineBreakByTruncatingTail;
 	[titleView addSubview:previewLabel];
 	self.previewLabel = previewLabel;
+
+	[NSLayoutConstraint activateConstraints:@[
+		[titleLabel.topAnchor constraintEqualToAnchor:titleView.topAnchor],
+		[titleLabel.leadingAnchor constraintEqualToAnchor:titleView.leadingAnchor],
+		[titleLabel.trailingAnchor constraintEqualToAnchor:titleView.trailingAnchor],
+		[titleLabel.heightAnchor constraintEqualToConstant:14],
+
+		[previewLabel.topAnchor constraintEqualToAnchor:titleLabel.bottomAnchor],
+		[previewLabel.leadingAnchor constraintEqualToAnchor:titleView.leadingAnchor],
+		[previewLabel.trailingAnchor constraintEqualToAnchor:titleView.trailingAnchor],
+		[previewLabel.bottomAnchor constraintEqualToAnchor:titleView.bottomAnchor],
+		[previewLabel.heightAnchor constraintEqualToConstant:22],
+
+		[titleView.widthAnchor constraintLessThanOrEqualToConstant:200]
+	]];
+
 	self.navigationItem.titleView = titleView;
 	[self amlUpdatePreviewLabel];
 }
