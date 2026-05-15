@@ -106,18 +106,28 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 		NSMutableArray *specs = [[self loadSpecifiersFromPlistName:@"Root" target:self] mutableCopy];
 		NSDictionary *prefs = DateLyricsCurrentPrefs();
 		BOOL showsFontStyle = [prefs[@"UseCustomFont"] boolValue];
-		BOOL showsStrokeSlider = [prefs[@"WordHighlighting"] boolValue] && [prefs[@"HighlightStyle"] integerValue] == 0;
+		BOOL highlightingEnabled = [prefs[@"WordHighlighting"] boolValue];
+		BOOL showsStrokeSlider = highlightingEnabled && [prefs[@"HighlightStyle"] integerValue] == 0;
+
 		NSIndexSet *fontIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
 			return [[[spec propertyForKey:@"key"] description] isEqualToString:@"CustomFontName"] && !showsFontStyle;
 		}];
 		if (fontIndexes.count > 0) {
 			[specs removeObjectsAtIndexes:fontIndexes];
 		}
-		NSIndexSet *strokeIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
-			return [[[spec propertyForKey:@"key"] description] isEqualToString:@"StrokeWidth"] && !showsStrokeSlider;
+
+		NSIndexSet *highlightingSubIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
+			NSString *key = [[spec propertyForKey:@"key"] description];
+			if ([key isEqualToString:@"HighlightStyle"] || [key isEqualToString:@"HighlightTrail"]) {
+				return !highlightingEnabled;
+			}
+			if ([key isEqualToString:@"StrokeWidth"]) {
+				return !showsStrokeSlider;
+			}
+			return NO;
 		}];
-		if (strokeIndexes.count > 0) {
-			[specs removeObjectsAtIndexes:strokeIndexes];
+		if (highlightingSubIndexes.count > 0) {
+			[specs removeObjectsAtIndexes:highlightingSubIndexes];
 		}
 
 		for (PSSpecifier *spec in specs) {
@@ -193,9 +203,9 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 	BOOL useCustomFont = [prefs[@"UseCustomFont"] boolValue];
 	CGFloat strokeWidth = [prefs[@"StrokeWidth"] respondsToSelector:@selector(floatValue)] ? [prefs[@"StrokeWidth"] floatValue] : 3.0f;
 
-	NSString *baseText = forceLowercase ? @"i'm a singer" : @"I'm a Singer";
-	NSRange activeRange = [baseText rangeOfString:(forceLowercase ? @"singer" : @"Singer")];
-	NSRange trailRange = [baseText rangeOfString:(forceLowercase ? @"a singer" : @"a Singer")];
+	NSString *baseText = forceLowercase ? @"a test lyric" : @"A Test Lyric";
+	NSRange activeRange = [baseText rangeOfString:(forceLowercase ? @"test" : @"Test")];
+	NSRange trailRange = [baseText rangeOfString:(forceLowercase ? @"a test" : @"A Test")];
 	NSMutableString *previewText = [baseText mutableCopy];
 
 	if (wordHighlighting && highlightStyle == 1) {
