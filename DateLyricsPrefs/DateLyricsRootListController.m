@@ -68,6 +68,21 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 	return [values copy];
 }
 
+static NSDictionary *DateLyricsCurrentPrefs(void) {
+	NSUserDefaults *prefs = [[NSUserDefaults alloc] initWithSuiteName:kDateLyricsPrefsSuite];
+	NSMutableDictionary *values = [NSMutableDictionary dictionary];
+	values[@"ForceLowercase"] = @([prefs boolForKey:@"ForceLowercase"]);
+	values[@"WordHighlighting"] = @([prefs objectForKey:@"WordHighlighting"] ? [prefs boolForKey:@"WordHighlighting"] : YES);
+	values[@"HighlightTrail"] = @([prefs boolForKey:@"HighlightTrail"]);
+	values[@"HighlightStyle"] = @((NSInteger)[prefs integerForKey:@"HighlightStyle"]);
+	values[@"UseCustomFont"] = @([prefs boolForKey:@"UseCustomFont"]);
+	NSString *fontName = [prefs objectForKey:@"CustomFontName"];
+	if ([fontName isKindOfClass:NSString.class]) values[@"CustomFontName"] = fontName;
+	id strokeValue = [prefs objectForKey:@"StrokeWidth"];
+	values[@"StrokeWidth"] = strokeValue ?: @3.0;
+	return values;
+}
+
 @interface LSApplicationProxy : NSObject
 @property (nonatomic, readonly) NSURL *dataContainerURL;
 + (id)applicationProxyForIdentifier:(id)arg1;
@@ -75,9 +90,12 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 
 @interface DateLyricsRootListController ()
 @property (nonatomic, strong) UIImageView *headerImageView;
+@property (nonatomic, strong) UILabel *mainTitleLabel;
+@property (nonatomic, strong) UILabel *mainPreviewLabel;
 @end
 
 @interface DateLyricsFontListController ()
+@property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *previewLabel;
 @end
 
@@ -86,6 +104,22 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 - (NSArray *)specifiers {
 	if (!_specifiers) {
 		NSMutableArray *specs = [[self loadSpecifiersFromPlistName:@"Root" target:self] mutableCopy];
+		NSDictionary *prefs = DateLyricsCurrentPrefs();
+		BOOL showsFontStyle = [prefs[@"UseCustomFont"] boolValue];
+		BOOL showsStrokeSlider = [prefs[@"WordHighlighting"] boolValue] && [prefs[@"HighlightStyle"] integerValue] == 0;
+		NSIndexSet *fontIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
+			return [[[spec propertyForKey:@"key"] description] isEqualToString:@"CustomFontName"] && !showsFontStyle;
+		}];
+		if (fontIndexes.count > 0) {
+			[specs removeObjectsAtIndexes:fontIndexes];
+		}
+		NSIndexSet *strokeIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
+			return [[[spec propertyForKey:@"key"] description] isEqualToString:@"StrokeWidth"] && !showsStrokeSlider;
+		}];
+		if (strokeIndexes.count > 0) {
+			[specs removeObjectsAtIndexes:strokeIndexes];
+		}
+
 		for (PSSpecifier *spec in specs) {
 			NSString *specifierID = [spec propertyForKey:@"id"];
 			NSString *specifierKey = [spec propertyForKey:@"key"];
@@ -102,8 +136,8 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 			}
 
 			if ([specifierKey isEqualToString:@"CustomFontName"]) {
-				[spec setProperty:@"titlesDataSource" forKey:@"titlesDataSource"];
-				[spec setProperty:@"valuesDataSource" forKey:@"valuesDataSource"];
+				[spec setProperty:@"titlesDataSource:" forKey:@"titlesDataSource"];
+				[spec setProperty:@"valuesDataSource:" forKey:@"valuesDataSource"];
 			}
 		}
 
@@ -112,11 +146,11 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 	return _specifiers;
 }
 
-- (NSArray *)titlesDataSource {
+- (NSArray *)titlesDataSource:(PSSpecifier *)specifier {
 	return DateLyricsFontTitles();
 }
 
-- (NSArray *)valuesDataSource {
+- (NSArray *)valuesDataSource:(PSSpecifier *)specifier {
 	return DateLyricsFontValues();
 }
 
@@ -150,11 +184,85 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 	return cell;
 }
 
+- (void)amlRefreshMainPreview {
+	NSDictionary *prefs = DateLyricsCurrentPrefs();
+	BOOL forceLowercase = [prefs[@"ForceLowercase"] boolValue];
+	BOOL wordHighlighting = [prefs[@"WordHighlighting"] boolValue];
+	BOOL keepPastHighlighted = [prefs[@"HighlightTrail"] boolValue];
+	NSInteger highlightStyle = [prefs[@"HighlightStyle"] integerValue];
+	BOOL useCustomFont = [prefs[@"UseCustomFont"] boolValue];
+	CGFloat strokeWidth = [prefs[@"StrokeWidth"] respondsToSelector:@selector(floatValue)] ? [prefs[@"StrokeWidth"] floatValue] : 3.0f;
+
+	NSString *baseText = forceLowercase ? @"i'm a singer" : @"I'm a Singer";
+	NSRange activeRange = [baseText rangeOfString:(forceLowercase ? @"singer" : @"Singer")];
+	NSRange trailRange = [baseText rangeOfString:(forceLowercase ? @"a singer" : @"a Singer")];
+	NSMutableString *previewText = [baseText mutableCopy];
+
+	if (wordHighlighting && highlightStyle == 1) {
+		NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
+		if (keepPastHighlighted && trailRange.location != NSNotFound) {
+			[ranges addObject:[NSValue valueWithRange:trailRange]];
+		}
+		if (activeRange.location != NSNotFound) {
+			[ranges addObject:[NSValue valueWithRange:activeRange]];
+		}
+		[ranges sortUsingComparator:^NSComparisonResult(NSValue *leftValue, NSValue *rightValue) {
+			NSRange left = leftValue.rangeValue;
+			NSRange right = rightValue.rangeValue;
+			if (left.location > right.location) return NSOrderedAscending;
+			if (left.location < right.location) return NSOrderedDescending;
+			return NSOrderedSame;
+		}];
+		for (NSValue *value in ranges) {
+			NSRange range = value.rangeValue;
+			NSString *substring = [previewText substringWithRange:range];
+			[previewText replaceCharactersInRange:range withString:substring.uppercaseString];
+		}
+	}
+
+	NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:previewText];
+	UIFont *font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightSemibold];
+	NSString *fontName = prefs[@"CustomFontName"];
+	if (useCustomFont && [fontName isKindOfClass:NSString.class] && fontName.length > 0) {
+		UIFont *customFont = [UIFont fontWithName:fontName size:20.0];
+		if (customFont) font = customFont;
+	}
+	[attributed addAttribute:NSFontAttributeName value:font range:NSMakeRange(0, attributed.length)];
+	[attributed addAttribute:NSForegroundColorAttributeName value:[UIColor labelColor] range:NSMakeRange(0, attributed.length)];
+
+	if (wordHighlighting && highlightStyle == 0) {
+		UIColor *textColor = [UIColor labelColor];
+		if (keepPastHighlighted && trailRange.location != NSNotFound) {
+			[attributed addAttribute:NSStrokeWidthAttributeName value:@(-strokeWidth) range:trailRange];
+			[attributed addAttribute:NSStrokeColorAttributeName value:textColor range:trailRange];
+		}
+		if (activeRange.location != NSNotFound) {
+			[attributed addAttribute:NSStrokeWidthAttributeName value:@(-strokeWidth) range:activeRange];
+			[attributed addAttribute:NSStrokeColorAttributeName value:textColor range:activeRange];
+		}
+	}
+
+	self.mainPreviewLabel.attributedText = attributed;
+}
+
 - (void)loadView {
 	[super loadView];
 
 	UITableView *tableView = [self table];
 	tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+	UIView *titleView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 260, 24)];
+	titleView.backgroundColor = [UIColor clearColor];
+	UILabel *previewLabel = [[UILabel alloc] initWithFrame:titleView.bounds];
+	previewLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	previewLabel.textAlignment = NSTextAlignmentCenter;
+	previewLabel.numberOfLines = 1;
+	previewLabel.adjustsFontSizeToFitWidth = YES;
+	previewLabel.minimumScaleFactor = 0.55;
+	previewLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+	[titleView addSubview:previewLabel];
+	self.mainPreviewLabel = previewLabel;
+	self.navigationItem.titleView = titleView;
+	[self amlRefreshMainPreview];
 
 	UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 180)];
 
@@ -188,6 +296,7 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 	if (!_cachedGithubIcon) {
 		[self fetchGithubLogo];
 	}
+	[self amlRefreshMainPreview];
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
@@ -200,6 +309,15 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 
 	UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
 	[haptic impactOccurred];
+
+	NSString *key = [specifier propertyForKey:@"key"];
+	if ([key isEqualToString:@"HighlightStyle"] ||
+		[key isEqualToString:@"WordHighlighting"] ||
+		[key isEqualToString:@"UseCustomFont"]) {
+		_specifiers = nil;
+		[self reloadSpecifiers];
+	}
+	[self amlRefreshMainPreview];
 }
 
 - (void)amlUpdateHeaderArtwork {
@@ -356,51 +474,39 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 
 - (void)amlUpdatePreviewLabel {
 	NSString *fontName = [self amlSelectedFontName];
-	UIFont *previewFont = [UIFont fontWithName:fontName size:28.0] ?: [UIFont boldSystemFontOfSize:28.0];
+	UIFont *previewFont = [UIFont fontWithName:fontName size:17.0] ?: [UIFont boldSystemFontOfSize:17.0];
 	self.previewLabel.font = previewFont;
 	self.previewLabel.text = @"I'm working late, cause I'm a singer";
 	self.previewLabel.textColor = [UIColor labelColor];
+	self.titleLabel.text = @"Font Style";
+	self.titleLabel.textColor = [UIColor secondaryLabelColor];
 }
 
 - (void)viewDidLoad {
 	[super viewDidLoad];
-	self.title = @"Font Style";
 	self.table.rowHeight = 44.0;
 
-	UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.table.bounds.size.width, 108)];
-	headerView.backgroundColor = [UIColor clearColor];
+	UIView *titleView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 260, 38)];
+	titleView.backgroundColor = [UIColor clearColor];
 
-	UIView *previewCard = [[UIView alloc] initWithFrame:CGRectInset(headerView.bounds, 16.0, 10.0)];
-	previewCard.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-	previewCard.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
-	previewCard.layer.cornerRadius = 12.0;
-	previewCard.layer.masksToBounds = YES;
-	[headerView addSubview:previewCard];
+	UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 260, 14)];
+	titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
+	titleLabel.textAlignment = NSTextAlignmentCenter;
+	titleLabel.adjustsFontSizeToFitWidth = YES;
+	titleLabel.minimumScaleFactor = 0.8;
+	[titleView addSubview:titleLabel];
+	self.titleLabel = titleLabel;
 
-	UILabel *previewLabel = [[UILabel alloc] initWithFrame:CGRectInset(previewCard.bounds, 16.0, 14.0)];
-	previewLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	UILabel *previewLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 14, 260, 22)];
 	previewLabel.textAlignment = NSTextAlignmentCenter;
-	previewLabel.numberOfLines = 2;
+	previewLabel.numberOfLines = 1;
 	previewLabel.adjustsFontSizeToFitWidth = YES;
-	previewLabel.minimumScaleFactor = 0.5;
-	previewLabel.lineBreakMode = NSLineBreakByWordWrapping;
-	[previewCard addSubview:previewLabel];
+	previewLabel.minimumScaleFactor = 0.55;
+	previewLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+	[titleView addSubview:previewLabel];
 	self.previewLabel = previewLabel;
-	self.table.tableHeaderView = headerView;
+	self.navigationItem.titleView = titleView;
 	[self amlUpdatePreviewLabel];
-}
-
-- (void)viewDidLayoutSubviews {
-	[super viewDidLayoutSubviews];
-	UIView *headerView = self.table.tableHeaderView;
-	if (!headerView) return;
-	CGRect frame = headerView.frame;
-	CGFloat width = CGRectGetWidth(self.table.bounds);
-	if (fabs(frame.size.width - width) > 0.5) {
-		frame.size.width = width;
-		headerView.frame = frame;
-		self.table.tableHeaderView = headerView;
-	}
 }
 
 - (void)viewWillAppear:(BOOL)animated {
