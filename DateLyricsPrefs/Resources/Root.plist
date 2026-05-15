@@ -102,7 +102,7 @@
 			<key>label</key>
 			<string>Syllable Highlighting</string>
 			<key>footerText</key>
-			<string>Only affects songs with syllable/word timing data. In Stroke mode, use the outline thickness slider below to control how bold the highlighted syllables look.</string>
+			<string>Only affects songs with syllable/word timing data.</string>
 		</dict>
 
 		<dict>
@@ -270,7 +270,7 @@
 				<key>label</key>
 				<string>Transition Length</string>
 				<key>min</key>
-				<real>0.0</real>
+				<real>0.1</real>
 				<key>max</key>
 				<real>0.8</real>
 				<key>default</key>
