@@ -111,6 +111,28 @@
 
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>HighlightTrail</string>
+			<key>label</key>
+			<string>Keep Past Syllables Highlighted</string>
+			<key>iconImageSystem</key>
+			<dict>
+				<key>name</key>
+				<string>text.line.first.and.arrowtriangle.forward</string>
+			</dict>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			<key>requires</key>
+			<string>WordHighlighting</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>key</key>
 			<string>StrokeWidth</string>

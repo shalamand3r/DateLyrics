@@ -3,6 +3,7 @@
 @import MediaPlayer;
 @import UIKit;
 #import <objc/runtime.h>
+#import <stdarg.h>
 
 @interface ICURLResponse : NSObject
 @property (nonatomic, readonly) NSData *bodyData;
@@ -135,6 +136,7 @@ static MPNowPlayingInfoCenter *gNowPlayingInfoCenter = nil;
 static BOOL gDateLyricsEnabled = YES;
 static BOOL gDateLyricsForceLowercase = NO;
 static BOOL gDateLyricsWordHighlighting = YES;
+static BOOL gDateLyricsHighlightTrail = NO;
 static NSInteger gDateLyricsHighlightStyle = 0;
 static CGFloat gDateLyricsStrokeWidth = 3.0;
 static CGFloat gDateLyricsMinimumScale = 0.55;
@@ -154,9 +156,11 @@ static NSString *const kDateLyricsPrefsSuite = @"com.shalamand3r.datelyrics";
 static NSString *const kDateLyricsCurrentLineKey = @"CurrentLyricLine";
 static NSString *const kDateLyricsBridgeFilePath = @"/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.current-line.txt";
 static NSString *const kDateLyricsLegacyBridgeFilePath = @"/var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt";
+static NSString *const kDateLyricsDebugLogFilePath = @"/var/mobile/Library/Preferences/com.shalamand3r.datelyrics.debug.log";
 static CFStringRef const kDateLyricsCurrentLineChangedNotification = CFSTR("com.shalamand3r.datelyrics.current-line.changed");
 static CFStringRef const kDateLyricsLegacyCurrentLineChangedNotification = CFSTR("com.82flex.amlyrics.current-line.changed");
 static NSString *GetLyricsRootPath(void);
+static BOOL gDateLyricsDebugLogging = YES;
 
 static BOOL DateLyricsIsSpringBoardHost(void) {
     NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
@@ -174,6 +178,10 @@ static BOOL DateLyricsIsMusicHost(void) {
 
 static NSString *DateLyricsLocalCurrentLinePath(void) {
     return [GetLyricsRootPath() stringByAppendingPathComponent:@"current-line.txt"];
+}
+
+static NSString *DateLyricsLocalDebugLogPath(void) {
+    return [GetLyricsRootPath() stringByAppendingPathComponent:@"debug.log"];
 }
 
 static NSString *DateLyricsMusicContainerCurrentLinePath(void) {
@@ -194,6 +202,85 @@ static NSTimeInterval DateLyricsParseTimeString(NSString *value) {
     return 0;
 }
 
+static NSString *DateLyricsDebugProcessName(void) {
+    NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
+    NSString *processName = [NSProcessInfo processInfo].processName;
+    return bundleIdentifier.length > 0 ? bundleIdentifier : (processName ?: @"unknown");
+}
+
+static NSString *DateLyricsDebugString(NSString *value) {
+    if (![value isKindOfClass:NSString.class]) return @"<nil>";
+    NSString *normalized = [[value stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"]
+                                  stringByReplacingOccurrencesOfString:@"\r" withString:@"\\r"];
+    if (normalized.length > 220) {
+        return [[normalized substringToIndex:220] stringByAppendingString:@"..."];
+    }
+    return normalized;
+}
+
+static NSString *DateLyricsDebugRangeString(NSRange range) {
+    if (range.location == NSNotFound) return @"{NSNotFound,0}";
+    return [NSString stringWithFormat:@"{%lu,%lu}", (unsigned long)range.location, (unsigned long)range.length];
+}
+
+static void DateLyricsWriteDebugLine(NSString *line) {
+    if (!gDateLyricsDebugLogging || line.length == 0) return;
+
+    NSArray<NSString *> *paths = @[ kDateLyricsDebugLogFilePath, DateLyricsLocalDebugLogPath() ?: @"" ];
+    NSData *data = [[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+
+    for (NSString *path in paths) {
+        if (path.length == 0) continue;
+        NSString *directory = [path stringByDeletingLastPathComponent];
+        if (directory.length > 0) {
+            [fileManager createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:nil];
+        }
+        if (![fileManager fileExistsAtPath:path]) {
+            [@"" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        }
+        NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:path];
+        if (!handle) continue;
+        @try {
+            [handle seekToEndOfFile];
+            [handle writeData:data];
+        } @catch (__unused NSException *exception) {
+        } @finally {
+            [handle closeFile];
+        }
+    }
+}
+
+static void DateLyricsDebugLog(NSString *format, ...) {
+    if (!gDateLyricsDebugLogging || format.length == 0) return;
+
+    va_list args;
+    va_start(args, format);
+    NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
+    va_end(args);
+
+    NSDateFormatter *formatter = [NSDateFormatter new];
+    formatter.dateFormat = @"yyyy-MM-dd HH:mm:ss.SSS";
+    NSString *timestamp = [formatter stringFromDate:[NSDate date]];
+    NSString *line = [NSString stringWithFormat:@"[%@] [%@] %@", timestamp, DateLyricsDebugProcessName(), message];
+    DateLyricsWriteDebugLine(line);
+}
+
+static void DateLyricsResetDebugLog(NSString *reason) {
+    if (!gDateLyricsDebugLogging) return;
+
+    NSArray<NSString *> *paths = @[ kDateLyricsDebugLogFilePath, DateLyricsLocalDebugLogPath() ?: @"" ];
+    for (NSString *path in paths) {
+        if (path.length == 0) continue;
+        NSString *directory = [path stringByDeletingLastPathComponent];
+        if (directory.length > 0) {
+            [[NSFileManager defaultManager] createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:nil];
+        }
+        [@"" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
+    DateLyricsDebugLog(@"===== DEBUG LOG RESET: %@ =====", reason ?: @"(no reason)");
+}
+
 static NSDictionary *DateLyricsMakePayload(NSString *text, NSRange activeRange) {
     if (![text isKindOfClass:NSString.class] || text.length == 0) return nil;
     NSMutableDictionary *payload = [@{ @"text": text } mutableCopy];
@@ -201,7 +288,46 @@ static NSDictionary *DateLyricsMakePayload(NSString *text, NSRange activeRange) 
         payload[@"loc"] = @(activeRange.location);
         payload[@"len"] = @(activeRange.length);
     }
+    DateLyricsDebugLog(@"MakePayload text=\"%@\" activeRange=%@ hasLoc=%@",
+        DateLyricsDebugString(text),
+        DateLyricsDebugRangeString(activeRange),
+        payload[@"loc"] ? @"YES" : @"NO");
     return payload;
+}
+
+static NSRange DateLyricsHighlightRangeForLyric(NSString *lyric, NSRange activeRange, BOOL includeTrail) {
+    if (![lyric isKindOfClass:NSString.class] || lyric.length == 0) return NSMakeRange(NSNotFound, 0);
+    if (activeRange.location == NSNotFound || activeRange.length == 0) return NSMakeRange(NSNotFound, 0);
+    if (NSMaxRange(activeRange) > lyric.length) return NSMakeRange(NSNotFound, 0);
+
+    NSCharacterSet *newlineSet = [NSCharacterSet newlineCharacterSet];
+    NSUInteger lineStart = 0;
+    NSUInteger highlightEnd = NSMaxRange(activeRange);
+
+    if (activeRange.location > 0) {
+        NSRange searchRange = NSMakeRange(0, activeRange.location);
+        NSRange previousNewline = [lyric rangeOfCharacterFromSet:newlineSet
+                                                        options:NSBackwardsSearch
+                                                          range:searchRange];
+        if (previousNewline.location != NSNotFound) {
+            lineStart = NSMaxRange(previousNewline);
+        }
+    }
+
+    NSRange forwardSearchRange = NSMakeRange(activeRange.location, lyric.length - activeRange.location);
+    NSRange nextNewline = [lyric rangeOfCharacterFromSet:newlineSet
+                                                 options:0
+                                                   range:forwardSearchRange];
+    if (nextNewline.location != NSNotFound && highlightEnd > nextNewline.location) {
+        highlightEnd = nextNewline.location;
+    }
+
+    if (highlightEnd <= activeRange.location) return NSMakeRange(NSNotFound, 0);
+
+    NSUInteger highlightStart = includeTrail ? lineStart : activeRange.location;
+    if (highlightStart >= highlightEnd) return NSMakeRange(NSNotFound, 0);
+
+    return NSMakeRange(highlightStart, highlightEnd - highlightStart);
 }
 
 static NSString *DateLyricsSerializePayload(NSDictionary *payload) {
@@ -283,6 +409,11 @@ static void DateLyricsPersistCurrentLineSharedState(NSDictionary *payload) {
 
 static void DateLyricsPublishPayload(NSDictionary *payload) {
     NSString *publishedLine = DateLyricsSerializePayload(payload);
+    DateLyricsDebugLog(@"PublishPayload text=\"%@\" loc=%@ len=%@ serializedLen=%lu",
+        DateLyricsDebugString(payload[@"text"]),
+        payload[@"loc"] ?: @"<nil>",
+        payload[@"len"] ?: @"<nil>",
+        (unsigned long)publishedLine.length);
     if (DateLyricsIsSpringBoardHost()) {
         DateLyricsPersistCurrentLineSharedState(payload);
     } else {
@@ -405,6 +536,21 @@ static NSString *GetLyricsRootPath(void) {
         self.currentLine.text = [fullText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         self.currentLine.words = [self.currentWords copy];
         if (self.currentLine.text.length > 0 && self.currentLine.words.count > 0) {
+            DateLyricsDebugLog(@"Parsed line begin=%.3f end=%.3f text=\"%@\" wordCount=%lu",
+                self.currentLine.begin,
+                self.currentLine.end,
+                DateLyricsDebugString(self.currentLine.text),
+                (unsigned long)self.currentLine.words.count);
+            NSUInteger wordIndex = 0;
+            for (DateLyricsTimedWord *word in self.currentLine.words) {
+                DateLyricsDebugLog(@"  word[%lu] begin=%.3f end=%.3f sep=\"%@\" text=\"%@\"",
+                    (unsigned long)wordIndex,
+                    word.begin,
+                    word.end,
+                    DateLyricsDebugString(word.separatorBefore),
+                    DateLyricsDebugString(word.text));
+                wordIndex++;
+            }
             [self.lines addObject:self.currentLine];
         }
         self.currentLine = nil;
@@ -422,6 +568,7 @@ static NSArray<DateLyricsTimedLine *> *DateLyricsParseWordTimedLines(NSData *dat
     DateLyricsWordTTMLParserDelegate *delegate = [DateLyricsWordTTMLParserDelegate new];
     parser.delegate = delegate;
     BOOL ok = [parser parse];
+    DateLyricsDebugLog(@"ParseWordTimedLines ok=%@ parsedLines=%lu", ok ? @"YES" : @"NO", (unsigned long)delegate.lines.count);
     if (!ok || delegate.lines.count == 0) return nil;
     return [delegate.lines copy];
 }
@@ -430,6 +577,11 @@ static void ParseLyricsData(NSData *data, NSInteger iTunesStoreID, NSInteger lyr
     if (!data || gLastLyricsAdamID == lyricsAdamID) {
         return;
     }
+    DateLyricsResetDebugLog([NSString stringWithFormat:@"storeID=%lld lyricsAdamID=%lld", (long long)iTunesStoreID, (long long)lyricsAdamID]);
+    DateLyricsDebugLog(@"ParseLyricsData bytes=%lu storeID=%lld lyricsAdamID=%lld",
+        (unsigned long)data.length,
+        (long long)iTunesStoreID,
+        (long long)lyricsAdamID);
     pthread_mutex_lock(&gLyricsCacheMutex);
     if (gLyricsCache[@(iTunesStoreID)]) {
         pthread_mutex_unlock(&gLyricsCacheMutex);
@@ -459,6 +611,9 @@ static void ParseLyricsData(NSData *data, NSInteger iTunesStoreID, NSInteger lyr
         gWordLyricsCache[@(iTunesStoreID)] = wordLines;
     }
     pthread_mutex_unlock(&gLyricsCacheMutex);
+    DateLyricsDebugLog(@"ParseLyricsData finished lyricLineCount=%lu wordLineCount=%lu",
+        (unsigned long)lyricLines.count,
+        (unsigned long)wordLines.count);
     gLastLyricsAdamID = lyricsAdamID;
 }
 
@@ -749,20 +904,40 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
             title = line.text;
             NSRange activeRange = NSMakeRange(NSNotFound, 0);
             NSUInteger cursor = 0;
+            DateLyricsDebugLog(@"EvaluateLine elapsed=%.3f lineBegin=%.3f lineEnd=%.3f text=\"%@\" wordCount=%lu",
+                elapsedTime,
+                line.begin,
+                line.end,
+                DateLyricsDebugString(line.text),
+                (unsigned long)line.words.count);
             for (DateLyricsTimedWord *word in line.words) {
                 cursor += word.separatorBefore.length;
+                DateLyricsDebugLog(@"  cursor=%lu wordBegin=%.3f wordEnd=%.3f sepLen=%lu wordLen=%lu text=\"%@\" active=%@",
+                    (unsigned long)cursor,
+                    word.begin,
+                    word.end,
+                    (unsigned long)word.separatorBefore.length,
+                    (unsigned long)word.text.length,
+                    DateLyricsDebugString(word.text),
+                    (elapsedTime >= word.begin && elapsedTime < word.end) ? @"YES" : @"NO");
                 if (activeRange.location == NSNotFound && elapsedTime >= word.begin && elapsedTime < word.end) {
                     activeRange = NSMakeRange(cursor, word.text.length);
                     nextWordStart = word.end;
+                    DateLyricsDebugLog(@"  chose activeRange=%@ nextWordStart=%.3f", DateLyricsDebugRangeString(activeRange), nextWordStart);
                 } else if (word.begin > elapsedTime) {
                     if (nextWordStart < 0 || word.begin < nextWordStart) {
                         nextWordStart = word.begin;
                     }
+                    DateLyricsDebugLog(@"  upcoming word begin=%.3f becomes nextWordStart=%.3f", word.begin, nextWordStart);
                     break;
                 }
                 cursor += word.text.length;
             }
             wordPayload = DateLyricsMakePayload(line.text, activeRange);
+            DateLyricsDebugLog(@"Selected line payload text=\"%@\" range=%@ nextWordStart=%.3f",
+                DateLyricsDebugString(line.text),
+                DateLyricsDebugRangeString(activeRange),
+                nextWordStart);
             break;
         } else if (line.begin > elapsedTime) {
             if (nextWordStart < 0 || line.begin < nextWordStart) {
@@ -819,6 +994,12 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
 
     NSDictionary *payload = wordPayload ?: DateLyricsMakePayload(title, NSMakeRange(NSNotFound, 0));
     NSString *payloadSignature = DateLyricsSerializePayload(payload);
+    DateLyricsDebugLog(@"FinalPayload elapsed=%.3f storeID=%lld title=\"%@\" hasWordPayload=%@ signatureChanged=%@",
+        elapsedTime,
+        (long long)storeID,
+        DateLyricsDebugString(title),
+        wordPayload ? @"YES" : @"NO",
+        (![payloadSignature isEqualToString:self.amlCurrentPayloadSignature]) ? @"YES" : @"NO");
     if (![payloadSignature isEqualToString:self.amlCurrentPayloadSignature]) {
         self.amlCurrentLyricTitle = title;
         self.amlCurrentPayloadSignature = payloadSignature;
@@ -1103,13 +1284,27 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
         NSUInteger len = lenNum.unsignedIntegerValue;
         if (loc != NSNotFound && loc + len <= lyric.length) {
             NSMutableAttributedString *mAttrStr = [[NSMutableAttributedString alloc] initWithString:lyric];
-            if (gDateLyricsHighlightStyle == 1) {  
-                NSString *syllable = [lyric substringWithRange:NSMakeRange(loc, len)];
-                [mAttrStr replaceCharactersInRange:NSMakeRange(loc, len) withString:[syllable uppercaseString]];
+            NSRange highlightRange = DateLyricsHighlightRangeForLyric(lyric, NSMakeRange(loc, len), gDateLyricsHighlightTrail);
+            if (highlightRange.location == NSNotFound || highlightRange.length == 0) {
+                highlightRange = NSMakeRange(loc, len);
+            }
+            DateLyricsDebugLog(@"RenderLyric style=%ld trail=%@ lyric=\"%@\" incomingRange=%@ finalHighlightRange=%@",
+                (long)gDateLyricsHighlightStyle,
+                gDateLyricsHighlightTrail ? @"YES" : @"NO",
+                DateLyricsDebugString(lyric),
+                DateLyricsDebugRangeString(NSMakeRange(loc, len)),
+                DateLyricsDebugRangeString(highlightRange));
+
+            if (gDateLyricsHighlightStyle == 1) {
+                NSString *syllable = [lyric substringWithRange:highlightRange];
+                [mAttrStr replaceCharactersInRange:highlightRange withString:[syllable uppercaseString]];
             } else {  
                 UIColor *textColor = self.textColor ?: [UIColor whiteColor];
-                [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@(-gDateLyricsStrokeWidth) range:NSMakeRange(loc, len)];
-                [mAttrStr addAttribute:NSStrokeColorAttributeName value:textColor range:NSMakeRange(loc, len)];
+                // Explicitly zero the stroke on the whole string so reused animating labels
+                // do not carry the emphasized stroke past the active lyric range.
+                [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@0 range:NSMakeRange(0, lyric.length)];
+                [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@(-gDateLyricsStrokeWidth) range:highlightRange];
+                [mAttrStr addAttribute:NSStrokeColorAttributeName value:textColor range:highlightRange];
             }
             attrDisplayText = mAttrStr;
         }
@@ -1164,6 +1359,7 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     NSNumber *valEnabled = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("Enabled"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valForceLowercase = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("ForceLowercase"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valWord = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("WordHighlighting"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valTrail = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("HighlightTrail"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valStyle = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("HighlightStyle"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valStroke = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("StrokeWidth"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valScale = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("MinimumScale"), CFSTR("com.shalamand3r.datelyrics"));
@@ -1178,6 +1374,7 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
             if (!valEnabled) valEnabled = prefs[@"Enabled"];
             if (!valForceLowercase) valForceLowercase = prefs[@"ForceLowercase"];
             if (!valWord) valWord = prefs[@"WordHighlighting"];
+            if (!valTrail) valTrail = prefs[@"HighlightTrail"];
             if (!valStyle) valStyle = prefs[@"HighlightStyle"];
             if (!valStroke) valStroke = prefs[@"StrokeWidth"];
             if (!valScale) valScale = prefs[@"MinimumScale"];
@@ -1188,6 +1385,7 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     gDateLyricsEnabled = valEnabled ? [valEnabled boolValue] : YES;
     gDateLyricsForceLowercase = valForceLowercase ? [valForceLowercase boolValue] : NO;
     gDateLyricsWordHighlighting = valWord ? [valWord boolValue] : YES;
+    gDateLyricsHighlightTrail = valTrail ? [valTrail boolValue] : NO;
     gDateLyricsHighlightStyle = valStyle ? [valStyle integerValue] : 0;
     gDateLyricsStrokeWidth = valStroke ? [valStroke floatValue] : 3.0;
     gDateLyricsMinimumScale = valScale ? [valScale floatValue] : 0.55;
