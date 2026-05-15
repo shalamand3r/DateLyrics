@@ -434,12 +434,6 @@ static NSString *GetLyricsRootPath(void) {
         self.currentLine.text = [fullText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         self.currentLine.words = [self.currentWords copy];
         if (self.currentLine.text.length > 0 && self.currentLine.words.count > 0) {
-            
-            NSUInteger wordIndex = 0;
-            for (DateLyricsTimedWord *word in self.currentLine.words) {
-                
-                wordIndex++;
-            }
             [self.lines addObject:self.currentLine];
         }
         self.currentLine = nil;
