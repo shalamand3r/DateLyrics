@@ -288,69 +288,68 @@
 			<dict>
 				<key>cell</key>
 				<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Hide Lyrics Delay (Respring Required)</string>
-			<key>footerText</key>
-			<string>Seconds to wait after music is paused before hiding lyrics.</string>
-		</dict>
+				<key>label</key>
+				<string>Line Scaling</string>
+				<key>footerText</key>
+				<string>Adjust text size to ensure long lyric lines fit the screen.</string>
+			</dict>
 
-		<dict>
-			<key>cell</key>
-			<string>PSSliderCell</string>
-			<key>key</key>
-			<string>PauseTimeout</string>
-			<key>label</key>
-			<string>Delay (Respring Required)</string>
-			<key>min</key>
-			<real>0.0</real>
-			<key>max</key>
-			<real>10.0</real>
-			<key>isSegmented</key>
-			<true/>
-			<key>segmentCount</key>
-			<integer>10</integer>
-			<key>snapsToSegment</key>
-			<true/>
-			<key>default</key>
-			<real>3.0</real>
-			<key>showValue</key>
-			<true/>
-			<key>defaults</key>
-			<string>com.shalamand3r.datelyrics</string>
-			<key>PostNotification</key>
-			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
-		</dict>
+			<dict>
+				<key>cell</key>
+				<string>PSSliderCell</string>
+				<key>key</key>
+				<string>MinimumScale</string>
+				<key>label</key>
+				<string>Minimum Scale</string>
+				<key>min</key>
+				<real>0.3</real>
+				<key>max</key>
+				<real>1.0</real>
+				<key>default</key>
+				<real>0.55</real>
+				<key>showValue</key>
+				<true/>
+				<key>defaults</key>
+				<string>com.shalamand3r.datelyrics</string>
+				<key>PostNotification</key>
+				<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			</dict>
 
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Line Scaling</string>
-			<key>footerText</key>
-			<string>Adjust text size to ensure long lyric lines fit the screen.</string>
-		</dict>
+			<dict>
+				<key>cell</key>
+				<string>PSGroupCell</string>
+				<key>label</key>
+				<string>Hide Lyrics Delay (Respring Required)</string>
+				<key>footerText</key>
+				<string>Seconds to wait after music is paused before hiding lyrics.</string>
+			</dict>
 
-		<dict>
-			<key>cell</key>
-			<string>PSSliderCell</string>
-			<key>key</key>
-			<string>MinimumScale</string>
-			<key>label</key>
-			<string>Minimum Scale</string>
-			<key>min</key>
-			<real>0.3</real>
-			<key>max</key>
-			<real>1.0</real>
-			<key>default</key>
-			<real>0.55</real>
-			<key>showValue</key>
-			<true/>
-			<key>defaults</key>
-			<string>com.shalamand3r.datelyrics</string>
-			<key>PostNotification</key>
-			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
-		</dict>
-
+			<dict>
+				<key>cell</key>
+				<string>PSSliderCell</string>
+				<key>key</key>
+				<string>PauseTimeout</string>
+				<key>label</key>
+				<string>Delay (Respring Required)</string>
+				<key>min</key>
+				<real>0.0</real>
+				<key>max</key>
+				<real>10.0</real>
+				<key>isSegmented</key>
+				<true/>
+				<key>segmentCount</key>
+				<integer>10</integer>
+				<key>snapsToSegment</key>
+				<true/>
+				<key>default</key>
+				<real>3.0</real>
+				<key>showValue</key>
+				<true/>
+				<key>defaults</key>
+				<string>com.shalamand3r.datelyrics</string>
+				<key>PostNotification</key>
+				<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>

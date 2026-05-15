@@ -69,20 +69,25 @@ static NSArray<NSString *> *DateLyricsFontValues(void) {
 }
 
 static NSDictionary *DateLyricsCurrentPrefs(void) {
-	NSUserDefaults *prefs = [[NSUserDefaults alloc] initWithSuiteName:kDateLyricsPrefsSuite];
-	NSMutableDictionary *values = [NSMutableDictionary dictionary];
-	values[@"ForceLowercase"] = @([prefs boolForKey:@"ForceLowercase"]);
-	values[@"WordHighlighting"] = @([prefs objectForKey:@"WordHighlighting"] ? [prefs boolForKey:@"WordHighlighting"] : YES);
-	values[@"HighlightTrail"] = @([prefs boolForKey:@"HighlightTrail"]);
-	values[@"HighlightStyle"] = @((NSInteger)[prefs integerForKey:@"HighlightStyle"]);
-	values[@"UseCustomFont"] = @([prefs boolForKey:@"UseCustomFont"]);
-	NSString *fontName = [prefs objectForKey:@"CustomFontName"];
-	if ([fontName isKindOfClass:NSString.class]) values[@"CustomFontName"] = fontName;
-	id strokeValue = [prefs objectForKey:@"StrokeWidth"];
-	values[@"StrokeWidth"] = strokeValue ?: @3.0;
-	return values;
+        NSUserDefaults *prefs = [[NSUserDefaults alloc] initWithSuiteName:kDateLyricsPrefsSuite];
+        NSMutableDictionary *values = [NSMutableDictionary dictionary];
+        values[@"ForceLowercase"] = @([prefs boolForKey:@"ForceLowercase"]);
+        values[@"WordHighlighting"] = @([prefs objectForKey:@"WordHighlighting"] ? [prefs boolForKey:@"WordHighlighting"] : YES);
+        values[@"HighlightTrail"] = @([prefs boolForKey:@"HighlightTrail"]);
+        values[@"HighlightStyle"] = @((NSInteger)[prefs integerForKey:@"HighlightStyle"]);
+        values[@"UseCustomFont"] = @([prefs boolForKey:@"UseCustomFont"]);
+        values[@"TransitionsEnabled"] = @([prefs objectForKey:@"TransitionsEnabled"] ? [prefs boolForKey:@"TransitionsEnabled"] : YES);
+        values[@"TransitionStyle"] = @((NSInteger)[prefs integerForKey:@"TransitionStyle"]);
+        id transDuration = [prefs objectForKey:@"TransitionDuration"];
+        values[@"TransitionDuration"] = transDuration ?: @0.28;
+        id minScale = [prefs objectForKey:@"MinimumScale"];
+        values[@"MinimumScale"] = minScale ?: @0.55;
+        NSString *fontName = [prefs objectForKey:@"CustomFontName"];
+        if ([fontName isKindOfClass:NSString.class]) values[@"CustomFontName"] = fontName;
+        id strokeValue = [prefs objectForKey:@"StrokeWidth"];
+        values[@"StrokeWidth"] = strokeValue ?: @3.0;
+        return values;
 }
-
 @interface LSApplicationProxy : NSObject
 @property (nonatomic, readonly) NSURL *dataContainerURL;
 + (id)applicationProxyForIdentifier:(id)arg1;
@@ -92,14 +97,100 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 @property (nonatomic, strong) UIImageView *headerImageView;
 @property (nonatomic, strong) UILabel *mainTitleLabel;
 @property (nonatomic, strong) UILabel *mainPreviewLabel;
+@property (nonatomic, strong) NSTimer *previewAnimationTimer;
+@property (nonatomic, assign) NSInteger previewLineIndex;
+@property (nonatomic, assign) NSInteger previewWordIndex;
 @end
 
 @interface DateLyricsFontListController ()
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UILabel *previewLabel;
 @end
 
 @implementation DateLyricsRootListController
+
+- (void)amlAnimatePreview {
+	NSDictionary *prefs = DateLyricsCurrentPrefs();
+	BOOL transitionsEnabled = [prefs[@"TransitionsEnabled"] boolValue];
+	
+	NSInteger oldLineIndex = self.previewLineIndex;
+	self.previewLineIndex = (self.previewLineIndex + 1) % 2;
+	self.previewWordIndex = -1;
+
+	if (!transitionsEnabled || !self.mainPreviewLabel) {
+		[self amlRefreshMainPreview];
+		return;
+	}
+
+	NSInteger style = [prefs[@"TransitionStyle"] integerValue];
+	CGFloat duration = [prefs[@"TransitionDuration"] floatValue];
+	
+	UILabel *currentLabel = self.mainPreviewLabel;
+	UILabel *nextLabel = [[UILabel alloc] initWithFrame:currentLabel.frame];
+	
+	NSInteger actualLine = self.previewLineIndex;
+	NSInteger actualWord = self.previewWordIndex;
+	
+	self.previewLineIndex = actualLine;
+	self.previewWordIndex = actualWord;
+	[self amlRefreshMainPreview];
+	nextLabel.attributedText = currentLabel.attributedText;
+	
+	self.previewLineIndex = oldLineIndex;
+	self.previewWordIndex = 2;
+	[self amlRefreshMainPreview];
+	
+	self.previewLineIndex = actualLine;
+	self.previewWordIndex = actualWord;
+
+	nextLabel.textAlignment = currentLabel.textAlignment;
+	nextLabel.adjustsFontSizeToFitWidth = currentLabel.adjustsFontSizeToFitWidth;
+	nextLabel.minimumScaleFactor = currentLabel.minimumScaleFactor;
+	nextLabel.alpha = 0.0;
+	[currentLabel.superview addSubview:nextLabel];
+
+	if (style == 1) nextLabel.transform = CGAffineTransformMakeTranslation(0, 20);
+	else if (style == 2) nextLabel.transform = CGAffineTransformMakeTranslation(0, -20);
+	else if (style == 3) nextLabel.transform = CGAffineTransformMakeTranslation(currentLabel.bounds.size.width, 0);
+	else if (style == 4) nextLabel.transform = CGAffineTransformMakeScale(0.5, 0.5);
+
+	[UIView animateWithDuration:duration
+						  delay:0
+						options:UIViewAnimationOptionCurveEaseInOut
+					 animations:^{
+						 nextLabel.alpha = 1.0;
+						 nextLabel.transform = CGAffineTransformIdentity;
+
+						 if (style == 0) currentLabel.alpha = 0.0;
+						 else if (style == 1) { currentLabel.transform = CGAffineTransformMakeTranslation(0, -20); currentLabel.alpha = 0.0; }
+						 else if (style == 2) { currentLabel.transform = CGAffineTransformMakeTranslation(0, 20); currentLabel.alpha = 0.0; }
+						 else if (style == 3) { currentLabel.transform = CGAffineTransformMakeTranslation(-currentLabel.bounds.size.width, 0); currentLabel.alpha = 0.0; }
+						 else if (style == 4) { currentLabel.transform = CGAffineTransformMakeScale(1.5, 1.5); currentLabel.alpha = 0.0; }
+					 }
+					 completion:^(BOOL finished) {
+						 [self amlRefreshMainPreview];
+						 currentLabel.alpha = 1.0;
+						 currentLabel.transform = CGAffineTransformIdentity;
+						 [nextLabel removeFromSuperview];
+					 }];
+}
+
+- (void)amlPreviewStep {
+	self.previewWordIndex++;
+	if (self.previewWordIndex > 2) {
+		[self amlAnimatePreview];
+	} else {
+		[self amlRefreshMainPreview];
+	}
+}
+
+- (void)startPreviewAnimation {
+	[self stopPreviewAnimation];
+	self.previewAnimationTimer = [NSTimer scheduledTimerWithTimeInterval:0.8 target:self selector:@selector(amlPreviewStep) userInfo:nil repeats:YES];
+}
+
+- (void)stopPreviewAnimation {
+	[self.previewAnimationTimer invalidate];
+	self.previewAnimationTimer = nil;
+}
 
 - (NSArray *)specifiers {
 	if (!_specifiers) {
@@ -108,6 +199,7 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 		BOOL showsFontStyle = [prefs[@"UseCustomFont"] boolValue];
 		BOOL highlightingEnabled = [prefs[@"WordHighlighting"] boolValue];
 		BOOL showsStrokeSlider = highlightingEnabled && [prefs[@"HighlightStyle"] integerValue] == 0;
+		BOOL transitionsEnabled = prefs[@"TransitionsEnabled"] ? [prefs[@"TransitionsEnabled"] boolValue] : YES;
 
 		NSIndexSet *fontIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
 			return [[[spec propertyForKey:@"key"] description] isEqualToString:@"CustomFontName"] && !showsFontStyle;
@@ -116,7 +208,7 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 			[specs removeObjectsAtIndexes:fontIndexes];
 		}
 
-		NSIndexSet *highlightingSubIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
+		NSIndexSet *visibilityIndexes = [specs indexesOfObjectsPassingTest:^BOOL(PSSpecifier *spec, NSUInteger idx, BOOL *stop) {
 			NSString *key = [[spec propertyForKey:@"key"] description];
 			if ([key isEqualToString:@"HighlightStyle"] || [key isEqualToString:@"HighlightTrail"]) {
 				return !highlightingEnabled;
@@ -124,10 +216,13 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 			if ([key isEqualToString:@"StrokeWidth"]) {
 				return !showsStrokeSlider;
 			}
+			if ([key isEqualToString:@"TransitionStyle"] || [key isEqualToString:@"TransitionDuration"]) {
+				return !transitionsEnabled;
+			}
 			return NO;
 		}];
-		if (highlightingSubIndexes.count > 0) {
-			[specs removeObjectsAtIndexes:highlightingSubIndexes];
+		if (visibilityIndexes.count > 0) {
+			[specs removeObjectsAtIndexes:visibilityIndexes];
 		}
 
 		for (PSSpecifier *spec in specs) {
@@ -195,75 +290,76 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 }
 
 - (void)amlRefreshMainPreview {
-	NSDictionary *prefs = DateLyricsCurrentPrefs();
-	BOOL forceLowercase = [prefs[@"ForceLowercase"] boolValue];
-	BOOL wordHighlighting = [prefs[@"WordHighlighting"] boolValue];
-	BOOL keepPastHighlighted = [prefs[@"HighlightTrail"] boolValue];
-	NSInteger highlightStyle = [prefs[@"HighlightStyle"] integerValue];
-	BOOL useCustomFont = [prefs[@"UseCustomFont"] boolValue];
-	CGFloat strokeWidth = [prefs[@"StrokeWidth"] respondsToSelector:@selector(floatValue)] ? [prefs[@"StrokeWidth"] floatValue] : 3.0f;
+        NSDictionary *prefs = DateLyricsCurrentPrefs();
 
-	NSString *baseText = forceLowercase ? @"a test lyric" : @"A Test Lyric";
-	NSRange activeRange = [baseText rangeOfString:(forceLowercase ? @"test" : @"Test")];
-	NSRange trailRange = [baseText rangeOfString:(forceLowercase ? @"a test" : @"A Test")];
-	NSMutableString *previewText = [baseText mutableCopy];
+        self.mainPreviewLabel.alpha = 1.0;
 
-	if (wordHighlighting && highlightStyle == 1) {
-		NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
-		if (keepPastHighlighted && trailRange.location != NSNotFound) {
-			[ranges addObject:[NSValue valueWithRange:trailRange]];
-		}
-		if (activeRange.location != NSNotFound) {
-			[ranges addObject:[NSValue valueWithRange:activeRange]];
-		}
-		[ranges sortUsingComparator:^NSComparisonResult(NSValue *leftValue, NSValue *rightValue) {
-			NSRange left = leftValue.rangeValue;
-			NSRange right = rightValue.rangeValue;
-			if (left.location > right.location) return NSOrderedAscending;
-			if (left.location < right.location) return NSOrderedDescending;
-			return NSOrderedSame;
-		}];
-		for (NSValue *value in ranges) {
-			NSRange range = value.rangeValue;
-			NSString *substring = [previewText substringWithRange:range];
-			[previewText replaceCharactersInRange:range withString:substring.uppercaseString];
-		}
-	}
+        BOOL forceLowercase = [prefs[@"ForceLowercase"] boolValue];
+        BOOL wordHighlighting = [prefs[@"WordHighlighting"] boolValue];
+        BOOL keepPastHighlighted = [prefs[@"HighlightTrail"] boolValue];
+        NSInteger highlightStyle = [prefs[@"HighlightStyle"] integerValue];
+        BOOL useCustomFont = [prefs[@"UseCustomFont"] boolValue];
+        CGFloat strokeWidth = [prefs[@"StrokeWidth"] respondsToSelector:@selector(floatValue)] ? [prefs[@"StrokeWidth"] floatValue] : 3.0f;
 
-	NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:previewText];
-	UIFont *font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightSemibold];
-	NSString *fontName = prefs[@"CustomFontName"];
-	if (useCustomFont && [fontName isKindOfClass:NSString.class] && fontName.length > 0) {
-		UIFont *customFont = [UIFont fontWithName:fontName size:20.0];
-		if (customFont) font = customFont;
-	}
-	[attributed addAttribute:NSFontAttributeName value:font range:NSMakeRange(0, attributed.length)];
-	[attributed addAttribute:NSForegroundColorAttributeName value:[UIColor labelColor] range:NSMakeRange(0, attributed.length)];
+        NSArray *lines = @[@"1 Test Lyric", @"Lyric Test 1"];
+        NSString *baseText = lines[self.previewLineIndex % lines.count];
+        if (forceLowercase) baseText = baseText.lowercaseString;
 
-	if (wordHighlighting && highlightStyle == 0) {
-		UIColor *textColor = [UIColor labelColor];
-		if (keepPastHighlighted && trailRange.location != NSNotFound) {
-			[attributed addAttribute:NSStrokeWidthAttributeName value:@(-strokeWidth) range:trailRange];
-			[attributed addAttribute:NSStrokeColorAttributeName value:textColor range:trailRange];
-		}
-		if (activeRange.location != NSNotFound) {
-			[attributed addAttribute:NSStrokeWidthAttributeName value:@(-strokeWidth) range:activeRange];
-			[attributed addAttribute:NSStrokeColorAttributeName value:textColor range:activeRange];
-		}
-	}
+        NSArray *wordRanges;
+        if (self.previewLineIndex % lines.count == 0) {
+                wordRanges = @[
+                        [NSValue valueWithRange:NSMakeRange(0, 1)],
+                        [NSValue valueWithRange:NSMakeRange(2, 4)],
+                        [NSValue valueWithRange:NSMakeRange(7, 5)]
+                ];
+        } else {
+                wordRanges = @[
+                        [NSValue valueWithRange:NSMakeRange(0, 5)],
+                        [NSValue valueWithRange:NSMakeRange(6, 4)],
+                        [NSValue valueWithRange:NSMakeRange(11, 1)]
+                ];
+        }
 
-	self.mainPreviewLabel.attributedText = attributed;
+        NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:baseText];
+        UIFont *font = [UIFont systemFontOfSize:20.0 weight:UIFontWeightSemibold];
+        NSString *fontName = prefs[@"CustomFontName"];
+        if (useCustomFont && [fontName isKindOfClass:NSString.class] && fontName.length > 0) {
+                UIFont *customFont = [UIFont fontWithName:fontName size:20.0];
+                if (customFont) font = customFont;
+        }
+        [attributed addAttribute:NSFontAttributeName value:font range:NSMakeRange(0, attributed.length)];
+        [attributed addAttribute:NSForegroundColorAttributeName value:[UIColor labelColor] range:NSMakeRange(0, attributed.length)];
+
+        if (wordHighlighting && self.previewWordIndex >= 0 && self.previewWordIndex < (NSInteger)wordRanges.count) {
+                NSRange activeRange = [wordRanges[self.previewWordIndex] rangeValue];
+                NSRange highlightRange = activeRange;
+
+                if (keepPastHighlighted) {
+                        highlightRange = NSMakeRange(0, activeRange.location + activeRange.length);
+                }
+
+                if (highlightStyle == 1) {
+                        NSString *substring = [baseText substringWithRange:highlightRange];
+                        [attributed replaceCharactersInRange:highlightRange withString:substring.uppercaseString];
+                } else {
+                        [attributed addAttribute:NSStrokeWidthAttributeName value:@(-strokeWidth) range:highlightRange];
+                        [attributed addAttribute:NSStrokeColorAttributeName value:[UIColor labelColor] range:highlightRange];
+                }
+        }
+
+        self.mainPreviewLabel.attributedText = attributed;
 }
-
 - (void)loadView {
 	[super loadView];
 
 	UITableView *tableView = [self table];
 	tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
-	UIView *titleView = [[UIView alloc] init];
+	self.navigationItem.backButtonTitle = @"Back";
+
+	UIView *titleView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 200, 44)];
 	titleView.backgroundColor = [UIColor clearColor];
-	UILabel *previewLabel = [[UILabel alloc] init];
-	previewLabel.translatesAutoresizingMaskIntoConstraints = NO;
+	UILabel *previewLabel = [[UILabel alloc] initWithFrame:titleView.bounds];
+	previewLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	previewLabel.textAlignment = NSTextAlignmentCenter;
 	previewLabel.numberOfLines = 1;
 	previewLabel.adjustsFontSizeToFitWidth = YES;
@@ -271,16 +367,9 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 	previewLabel.lineBreakMode = NSLineBreakByTruncatingTail;
 	[titleView addSubview:previewLabel];
 
-	[NSLayoutConstraint activateConstraints:@[
-		[previewLabel.topAnchor constraintEqualToAnchor:titleView.topAnchor],
-		[previewLabel.bottomAnchor constraintEqualToAnchor:titleView.bottomAnchor],
-		[previewLabel.leadingAnchor constraintEqualToAnchor:titleView.leadingAnchor],
-		[previewLabel.trailingAnchor constraintEqualToAnchor:titleView.trailingAnchor],
-		[titleView.widthAnchor constraintLessThanOrEqualToConstant:200]
-	]];
-
 	self.mainPreviewLabel = previewLabel;
 	self.navigationItem.titleView = titleView;
+	self.previewWordIndex = -1;
 	[self amlRefreshMainPreview];
 
 	UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 180)];
@@ -316,6 +405,12 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 		[self fetchGithubLogo];
 	}
 	[self amlRefreshMainPreview];
+	[self startPreviewAnimation];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+	[super viewWillDisappear:animated];
+	[self stopPreviewAnimation];
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
@@ -331,14 +426,21 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 
 	NSString *key = [specifier propertyForKey:@"key"];
 	if ([key isEqualToString:@"HighlightStyle"] ||
-		[key isEqualToString:@"WordHighlighting"] ||
-		[key isEqualToString:@"UseCustomFont"]) {
-		_specifiers = nil;
-		[self reloadSpecifiers];
+	        [key isEqualToString:@"WordHighlighting"] ||
+	        [key isEqualToString:@"UseCustomFont"] ||
+	        [key isEqualToString:@"TransitionsEnabled"] ||
+	        [key isEqualToString:@"MinimumScale"]) {
+
+	        _specifiers = nil;
+	        [self reloadSpecifiers];
+
+	        if ([key isEqualToString:@"TransitionsEnabled"]) {
+	                if ([value boolValue]) [self startPreviewAnimation];
+	                else [self stopPreviewAnimation];
+	        }
 	}
 	[self amlRefreshMainPreview];
-}
-
+	}
 - (void)amlUpdateHeaderArtwork {
 	if (!self.headerImageView) return;
 
@@ -483,6 +585,13 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 
 @end
 
+@interface DateLyricsFontListController ()
+@property (nonatomic, strong) UILabel *previewLabel;
+@property (nonatomic, strong) NSTimer *previewAnimationTimer;
+@property (nonatomic, assign) NSInteger previewLineIndex;
+@property (nonatomic, assign) NSInteger previewWordIndex;
+@end
+
 @implementation DateLyricsFontListController
 
 - (NSString *)amlSelectedFontName {
@@ -492,33 +601,154 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 }
 
 - (void)amlUpdatePreviewLabel {
+	NSDictionary *prefs = DateLyricsCurrentPrefs();
+	BOOL forceLowercase = [prefs[@"ForceLowercase"] boolValue];
+	BOOL wordHighlighting = [prefs[@"WordHighlighting"] boolValue];
+	BOOL keepPastHighlighted = [prefs[@"HighlightTrail"] boolValue];
+	NSInteger highlightStyle = [prefs[@"HighlightStyle"] integerValue];
+	CGFloat strokeWidth = [prefs[@"StrokeWidth"] respondsToSelector:@selector(floatValue)] ? [prefs[@"StrokeWidth"] floatValue] : 3.0f;
+	CGFloat minimumScale = [prefs[@"MinimumScale"] floatValue];
+
+	NSArray *lines = @[@"1 Test Lyric", @"Lyric Test 1"];
+	NSString *baseText = lines[self.previewLineIndex % lines.count];
+	if (forceLowercase) baseText = baseText.lowercaseString;
+
+	NSArray *wordRanges;
+	if (self.previewLineIndex % lines.count == 0) {
+		wordRanges = @[
+			[NSValue valueWithRange:NSMakeRange(0, 1)],
+			[NSValue valueWithRange:NSMakeRange(2, 4)],
+			[NSValue valueWithRange:NSMakeRange(7, 5)]
+		];
+	} else {
+		wordRanges = @[
+			[NSValue valueWithRange:NSMakeRange(0, 5)],
+			[NSValue valueWithRange:NSMakeRange(6, 4)],
+			[NSValue valueWithRange:NSMakeRange(11, 1)]
+		];
+	}
+
+	NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:baseText];
 	NSString *fontName = [self amlSelectedFontName];
-	UIFont *previewFont = [UIFont fontWithName:fontName size:17.0] ?: [UIFont boldSystemFontOfSize:17.0];
-	self.previewLabel.font = previewFont;
-	self.previewLabel.text = @"I'm working late, cause I'm a singer";
-	self.previewLabel.textColor = [UIColor labelColor];
-	self.titleLabel.text = @"Font Style";
-	self.titleLabel.textColor = [UIColor secondaryLabelColor];
+	UIFont *font = [UIFont fontWithName:fontName size:20.0] ?: [UIFont systemFontOfSize:20.0 weight:UIFontWeightSemibold];
+	
+	[attributed addAttribute:NSFontAttributeName value:font range:NSMakeRange(0, attributed.length)];
+	[attributed addAttribute:NSForegroundColorAttributeName value:[UIColor labelColor] range:NSMakeRange(0, attributed.length)];
+
+	if (wordHighlighting && self.previewWordIndex >= 0 && self.previewWordIndex < (NSInteger)wordRanges.count) {
+		NSRange activeRange = [wordRanges[self.previewWordIndex] rangeValue];
+		NSRange highlightRange = activeRange;
+		if (keepPastHighlighted) highlightRange = NSMakeRange(0, activeRange.location + activeRange.length);
+
+		if (highlightStyle == 1) {
+			NSString *substring = [baseText substringWithRange:highlightRange];
+			[attributed replaceCharactersInRange:highlightRange withString:substring.uppercaseString];
+		} else {
+			[attributed addAttribute:NSStrokeWidthAttributeName value:@(-strokeWidth) range:highlightRange];
+			[attributed addAttribute:NSStrokeColorAttributeName value:[UIColor labelColor] range:highlightRange];
+		}
+	}
+
+	self.previewLabel.minimumScaleFactor = minimumScale;
+	self.previewLabel.attributedText = attributed;
+}
+
+- (void)amlAnimatePreview {
+	NSDictionary *prefs = DateLyricsCurrentPrefs();
+	BOOL transitionsEnabled = [prefs[@"TransitionsEnabled"] boolValue];
+	
+	NSInteger oldLineIndex = self.previewLineIndex;
+	self.previewLineIndex = (self.previewLineIndex + 1) % 2;
+	self.previewWordIndex = -1;
+
+	if (!transitionsEnabled || !self.previewLabel) {
+		[self amlUpdatePreviewLabel];
+		return;
+	}
+
+	NSInteger style = [prefs[@"TransitionStyle"] integerValue];
+	CGFloat duration = [prefs[@"TransitionDuration"] floatValue];
+	
+	UILabel *currentLabel = self.previewLabel;
+	UILabel *nextLabel = [[UILabel alloc] initWithFrame:currentLabel.frame];
+	nextLabel.minimumScaleFactor = currentLabel.minimumScaleFactor;
+	nextLabel.adjustsFontSizeToFitWidth = currentLabel.adjustsFontSizeToFitWidth;
+	
+	NSInteger actualLine = self.previewLineIndex;
+	NSInteger actualWord = self.previewWordIndex;
+	
+	self.previewLineIndex = actualLine;
+	self.previewWordIndex = actualWord;
+	[self amlUpdatePreviewLabel];
+	nextLabel.attributedText = currentLabel.attributedText;
+	
+	self.previewLineIndex = oldLineIndex;
+	self.previewWordIndex = 2;
+	[self amlUpdatePreviewLabel];
+	
+	self.previewLineIndex = actualLine;
+	self.previewWordIndex = actualWord;
+
+	nextLabel.textAlignment = currentLabel.textAlignment;
+	nextLabel.adjustsFontSizeToFitWidth = currentLabel.adjustsFontSizeToFitWidth;
+	nextLabel.minimumScaleFactor = currentLabel.minimumScaleFactor;
+	nextLabel.alpha = 0.0;
+	[currentLabel.superview addSubview:nextLabel];
+
+	if (style == 1) nextLabel.transform = CGAffineTransformMakeTranslation(0, 20);
+	else if (style == 2) nextLabel.transform = CGAffineTransformMakeTranslation(0, -20);
+	else if (style == 3) nextLabel.transform = CGAffineTransformMakeTranslation(currentLabel.bounds.size.width, 0);
+	else if (style == 4) nextLabel.transform = CGAffineTransformMakeScale(0.5, 0.5);
+
+	[UIView animateWithDuration:duration
+						  delay:0
+						options:UIViewAnimationOptionCurveEaseInOut
+					 animations:^{
+						 nextLabel.alpha = 1.0;
+						 nextLabel.transform = CGAffineTransformIdentity;
+
+						 if (style == 0) currentLabel.alpha = 0.0;
+						 else if (style == 1) { currentLabel.transform = CGAffineTransformMakeTranslation(0, -20); currentLabel.alpha = 0.0; }
+						 else if (style == 2) { currentLabel.transform = CGAffineTransformMakeTranslation(0, 20); currentLabel.alpha = 0.0; }
+						 else if (style == 3) { currentLabel.transform = CGAffineTransformMakeTranslation(-currentLabel.bounds.size.width, 0); currentLabel.alpha = 0.0; }
+						 else if (style == 4) { currentLabel.transform = CGAffineTransformMakeScale(1.5, 1.5); currentLabel.alpha = 0.0; }
+					 }
+					 completion:^(BOOL finished) {
+						 [self amlUpdatePreviewLabel];
+						 currentLabel.alpha = 1.0;
+						 currentLabel.transform = CGAffineTransformIdentity;
+						 [nextLabel removeFromSuperview];
+					 }];
+}
+
+- (void)amlPreviewStep {
+	self.previewWordIndex++;
+	if (self.previewWordIndex > 2) {
+		[self amlAnimatePreview];
+	} else {
+		[self amlUpdatePreviewLabel];
+	}
+}
+
+- (void)startPreviewAnimation {
+	[self stopPreviewAnimation];
+	self.previewAnimationTimer = [NSTimer scheduledTimerWithTimeInterval:0.8 target:self selector:@selector(amlPreviewStep) userInfo:nil repeats:YES];
+}
+
+- (void)stopPreviewAnimation {
+	[self.previewAnimationTimer invalidate];
+	self.previewAnimationTimer = nil;
 }
 
 - (void)viewDidLoad {
 	[super viewDidLoad];
 	self.table.rowHeight = 44.0;
 
-	UIView *titleView = [[UIView alloc] init];
+	UIView *titleView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 200, 44)];
 	titleView.backgroundColor = [UIColor clearColor];
 
-	UILabel *titleLabel = [[UILabel alloc] init];
-	titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
-	titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
-	titleLabel.textAlignment = NSTextAlignmentCenter;
-	titleLabel.adjustsFontSizeToFitWidth = YES;
-	titleLabel.minimumScaleFactor = 0.8;
-	[titleView addSubview:titleLabel];
-	self.titleLabel = titleLabel;
-
-	UILabel *previewLabel = [[UILabel alloc] init];
-	previewLabel.translatesAutoresizingMaskIntoConstraints = NO;
+	UILabel *previewLabel = [[UILabel alloc] initWithFrame:titleView.bounds];
+	previewLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	previewLabel.textAlignment = NSTextAlignmentCenter;
 	previewLabel.numberOfLines = 1;
 	previewLabel.adjustsFontSizeToFitWidth = YES;
@@ -527,28 +757,20 @@ static NSDictionary *DateLyricsCurrentPrefs(void) {
 	[titleView addSubview:previewLabel];
 	self.previewLabel = previewLabel;
 
-	[NSLayoutConstraint activateConstraints:@[
-		[titleLabel.topAnchor constraintEqualToAnchor:titleView.topAnchor],
-		[titleLabel.leadingAnchor constraintEqualToAnchor:titleView.leadingAnchor],
-		[titleLabel.trailingAnchor constraintEqualToAnchor:titleView.trailingAnchor],
-		[titleLabel.heightAnchor constraintEqualToConstant:14],
-
-		[previewLabel.topAnchor constraintEqualToAnchor:titleLabel.bottomAnchor],
-		[previewLabel.leadingAnchor constraintEqualToAnchor:titleView.leadingAnchor],
-		[previewLabel.trailingAnchor constraintEqualToAnchor:titleView.trailingAnchor],
-		[previewLabel.bottomAnchor constraintEqualToAnchor:titleView.bottomAnchor],
-		[previewLabel.heightAnchor constraintEqualToConstant:22],
-
-		[titleView.widthAnchor constraintLessThanOrEqualToConstant:200]
-	]];
-
 	self.navigationItem.titleView = titleView;
+	self.previewWordIndex = -1;
 	[self amlUpdatePreviewLabel];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear:animated];
 	[self amlUpdatePreviewLabel];
+	[self startPreviewAnimation];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+	[super viewWillDisappear:animated];
+	[self stopPreviewAnimation];
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
