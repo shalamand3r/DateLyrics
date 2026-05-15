@@ -1,6 +1,7 @@
 @import Darwin;
 @import Foundation;
 @import MediaPlayer;
+@import QuartzCore;
 @import UIKit;
 #import <objc/runtime.h>
 #import <stdarg.h>
@@ -139,9 +140,12 @@ static BOOL gDateLyricsForceLowercase = NO;
 static BOOL gDateLyricsWordHighlighting = YES;
 static BOOL gDateLyricsHighlightTrail = NO;
 static NSInteger gDateLyricsHighlightStyle = 0;
+static BOOL gDateLyricsTransitionsEnabled = YES;
+static NSInteger gDateLyricsTransitionStyle = 0;
+static NSTimeInterval gDateLyricsTransitionDuration = 0.28;
 static CGFloat gDateLyricsStrokeWidth = 3.0;
 static CGFloat gDateLyricsMinimumScale = 0.55;
-static NSTimeInterval gDateLyricsPauseTimeout = 7.0;
+static NSTimeInterval gDateLyricsPauseTimeout = 3.0;
 
 static NSHashTable<CSProminentSubtitleDateView *> *gDateLyricsDateViews = nil;
 static NSHashTable<UIView *> *gDateLyricsWidgetSlots = nil;
@@ -152,6 +156,7 @@ static const void *kDateLyricsForcedWidgetDateVisibleKey = &kDateLyricsForcedWid
 static const void *kDateLyricsOriginalHiddenKey = &kDateLyricsOriginalHiddenKey;
 static const void *kDateLyricsRestoringStockDateKey = &kDateLyricsRestoringStockDateKey;
 static const void *kDateLyricsLabelShowingLyricKey = &kDateLyricsLabelShowingLyricKey;
+static const void *kDateLyricsAnimatingTransitionKey = &kDateLyricsAnimatingTransitionKey;
 
 static NSString *const kDateLyricsPrefsSuite = @"com.shalamand3r.datelyrics";
 static NSString *const kDateLyricsCurrentLineKey = @"CurrentLyricLine";
@@ -160,6 +165,14 @@ static NSString *const kDateLyricsLegacyBridgeFilePath = @"/var/mobile/Library/P
 static CFStringRef const kDateLyricsCurrentLineChangedNotification = CFSTR("com.shalamand3r.datelyrics.current-line.changed");
 static CFStringRef const kDateLyricsLegacyCurrentLineChangedNotification = CFSTR("com.82flex.amlyrics.current-line.changed");
 static NSString *GetLyricsRootPath(void);
+
+typedef NS_ENUM(NSInteger, DateLyricsTransitionStyle) {
+    DateLyricsTransitionStyleFade = 0,
+    DateLyricsTransitionStyleSlideUp = 1,
+    DateLyricsTransitionStyleSlideDown = 2,
+    DateLyricsTransitionStylePush = 3,
+    DateLyricsTransitionStylePop = 4,
+};
 
 static BOOL DateLyricsIsSpringBoardHost(void) {
     NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
@@ -332,6 +345,70 @@ static NSDictionary *DateLyricsStoredPayload(void) {
     }
     CFPropertyListRef legacyValue = CFPreferencesCopyAppValue((__bridge CFStringRef)kDateLyricsCurrentLineKey, CFSTR("com.82flex.amlyrics"));
     return DateLyricsDeserializePayloadString(CFBridgingRelease(legacyValue));
+}
+
+static void DateLyricsApplyLabelContent(_UIAnimatingLabel *label, NSString *displayText, NSAttributedString *attrDisplayText) {
+    if (![label isKindOfClass:UILabel.class]) return;
+    if (attrDisplayText) {
+        label.attributedText = attrDisplayText;
+    } else {
+        label.attributedText = nil;
+        label.text = displayText;
+    }
+}
+
+static void DateLyricsAnimateLabelTransition(_UIAnimatingLabel *label, NSString *previousDisplayText, NSString *displayText, NSAttributedString *attrDisplayText) {
+    if (![label isKindOfClass:UILabel.class]) {
+        DateLyricsApplyLabelContent(label, displayText, attrDisplayText);
+        return;
+    }
+
+    NSTimeInterval duration = MAX(0.0, gDateLyricsTransitionDuration);
+    if (!gDateLyricsTransitionsEnabled || duration <= 0.0 || previousDisplayText.length == 0) {
+        DateLyricsApplyLabelContent(label, displayText, attrDisplayText);
+        return;
+    }
+
+    switch (gDateLyricsTransitionStyle) {
+        case DateLyricsTransitionStyleFade: {
+            [UIView transitionWithView:label duration:duration options:UIViewAnimationOptionTransitionCrossDissolve | UIViewAnimationOptionAllowAnimatedContent | UIViewAnimationOptionBeginFromCurrentState animations:^{
+                DateLyricsApplyLabelContent(label, displayText, attrDisplayText);
+            } completion:nil];
+            break;
+        }
+        case DateLyricsTransitionStyleSlideUp:
+        case DateLyricsTransitionStyleSlideDown:
+        case DateLyricsTransitionStylePush: {
+            CATransition *transition = [CATransition animation];
+            transition.duration = duration;
+            transition.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+            transition.type = kCATransitionPush;
+            if (gDateLyricsTransitionStyle == DateLyricsTransitionStyleSlideDown) {
+                transition.subtype = kCATransitionFromTop;
+            } else if (gDateLyricsTransitionStyle == DateLyricsTransitionStylePush) {
+                transition.subtype = kCATransitionFromRight;
+            } else {
+                transition.subtype = kCATransitionFromBottom;
+            }
+            [label.layer addAnimation:transition forKey:@"DateLyricsLineTransition"];
+            DateLyricsApplyLabelContent(label, displayText, attrDisplayText);
+            break;
+        }
+        case DateLyricsTransitionStylePop: {
+            DateLyricsApplyLabelContent(label, displayText, attrDisplayText);
+            label.transform = CGAffineTransformMakeScale(0.9, 0.9);
+            label.alpha = 0.0;
+            [UIView animateWithDuration:duration delay:0.0 usingSpringWithDamping:0.78 initialSpringVelocity:0.4 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseOut animations:^{
+                label.transform = CGAffineTransformIdentity;
+                label.alpha = 1.0;
+            } completion:nil];
+            break;
+        }
+        default: {
+            DateLyricsApplyLabelContent(label, displayText, attrDisplayText);
+            break;
+        }
+    }
 }
 
 static void DateLyricsCurrentLineChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
@@ -1076,6 +1153,7 @@ static void DateLyricsRestoreSystemDateLabel(_UIAnimatingLabel *label) {
     CSProminentSubtitleDateView *dateView = DateLyricsFindAncestorDateView(label);
     objc_setAssociatedObject(label, kDateLyricsLabelShowingLyricKey, nil, OBJC_ASSOCIATION_ASSIGN);
     objc_setAssociatedObject(label, @selector(_amlApplyCurrentLyric), nil, OBJC_ASSOCIATION_ASSIGN);
+    objc_setAssociatedObject(label, kDateLyricsAnimatingTransitionKey, nil, OBJC_ASSOCIATION_ASSIGN);
     if (!dateView) return;
 
     label.text = nil;
@@ -1212,6 +1290,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     }
 
     NSString *displayText = lyric;
+    NSString *previousDisplayText = objc_getAssociatedObject(self, @selector(_amlApplyCurrentLyric));
 
     NSAttributedString *attrDisplayText = nil;
     NSNumber *locNum = payload[@"loc"];
@@ -1271,6 +1350,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     self.lineBreakMode = NSLineBreakByTruncatingTail;
 
     BOOL contentChanged = NO;
+    BOOL lineChanged = ![previousDisplayText isEqualToString:displayText];
     if (attrDisplayText) {
         contentChanged = ![self.attributedText isEqualToAttributedString:attrDisplayText];
     } else {
@@ -1281,11 +1361,10 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     objc_setAssociatedObject(self, kDateLyricsLabelShowingLyricKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
     if (contentChanged) {
-        if (attrDisplayText) {
-            self.attributedText = attrDisplayText;
-        } else {
-            self.attributedText = nil;
-            self.text = displayText;
+        if (lineChanged) {
+            DateLyricsAnimateLabelTransition(self, previousDisplayText ?: @"", displayText, attrDisplayText);
+        } else if (![objc_getAssociatedObject(self, kDateLyricsAnimatingTransitionKey) boolValue]) {
+            DateLyricsApplyLabelContent(self, displayText, attrDisplayText);
         }
     }
 }
@@ -1314,6 +1393,9 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     NSNumber *valWord = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("WordHighlighting"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valTrail = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("HighlightTrail"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valStyle = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("HighlightStyle"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valTransitionsEnabled = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("TransitionsEnabled"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valTransitionStyle = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("TransitionStyle"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valTransitionDuration = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("TransitionDuration"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valStroke = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("StrokeWidth"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valScale = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("MinimumScale"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valPause = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("PauseTimeout"), CFSTR("com.shalamand3r.datelyrics"));
@@ -1329,6 +1411,9 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
             if (!valWord) valWord = prefs[@"WordHighlighting"];
             if (!valTrail) valTrail = prefs[@"HighlightTrail"];
             if (!valStyle) valStyle = prefs[@"HighlightStyle"];
+            if (!valTransitionsEnabled) valTransitionsEnabled = prefs[@"TransitionsEnabled"];
+            if (!valTransitionStyle) valTransitionStyle = prefs[@"TransitionStyle"];
+            if (!valTransitionDuration) valTransitionDuration = prefs[@"TransitionDuration"];
             if (!valStroke) valStroke = prefs[@"StrokeWidth"];
             if (!valScale) valScale = prefs[@"MinimumScale"];
             if (!valPause) valPause = prefs[@"PauseTimeout"];
@@ -1340,9 +1425,16 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     gDateLyricsWordHighlighting = valWord ? [valWord boolValue] : YES;
     gDateLyricsHighlightTrail = valTrail ? [valTrail boolValue] : NO;
     gDateLyricsHighlightStyle = valStyle ? [valStyle integerValue] : 0;
+    gDateLyricsTransitionsEnabled = valTransitionsEnabled ? [valTransitionsEnabled boolValue] : YES;
+    NSInteger transitionStyle = valTransitionStyle ? [valTransitionStyle integerValue] : DateLyricsTransitionStyleFade;
+    if (transitionStyle < DateLyricsTransitionStyleFade || transitionStyle > DateLyricsTransitionStylePop) {
+        transitionStyle = DateLyricsTransitionStyleFade;
+    }
+    gDateLyricsTransitionStyle = transitionStyle;
+    gDateLyricsTransitionDuration = valTransitionDuration ? [valTransitionDuration doubleValue] : 0.28;
     gDateLyricsStrokeWidth = valStroke ? [valStroke floatValue] : 3.0;
     gDateLyricsMinimumScale = valScale ? [valScale floatValue] : 0.55;
-    gDateLyricsPauseTimeout = valPause ? [valPause doubleValue] : 7.0;
+    gDateLyricsPauseTimeout = valPause ? [valPause doubleValue] : 3.0;
 
     if (!gDateLyricsEnabled) {
         if (DateLyricsIsSpringBoardHost()) {
