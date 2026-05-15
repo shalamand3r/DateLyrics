@@ -181,14 +181,12 @@ static UIImage *_cachedGithubIcon = nil;
 
     NSFileManager *fileManager = [NSFileManager defaultManager];
 
-     
     NSString *libraryPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) firstObject];
     NSString *lyricsRoot = [libraryPath stringByAppendingPathComponent:@"DateLyrics"];
     if ([fileManager fileExistsAtPath:lyricsRoot]) {
         [fileManager removeItemAtPath:lyricsRoot error:nil];
     }
 
-     
     Class proxyClass = NSClassFromString(@"LSApplicationProxy");
     if (proxyClass) {
         LSApplicationProxy *proxy = [proxyClass applicationProxyForIdentifier:@"com.apple.Music"];
@@ -201,7 +199,6 @@ static UIImage *_cachedGithubIcon = nil;
         }
     }
 
-     
     NSArray *sharedPaths = @[
         kDateLyricsBridgeFilePath,
         kDateLyricsLegacyBridgeFilePath
@@ -213,7 +210,7 @@ static UIImage *_cachedGithubIcon = nil;
     }
 
     [self reload];
-    
+
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)@"com.shalamand3r.datelyrics/ReloadPrefs", NULL, NULL, YES);
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), kDateLyricsCurrentLineChangedNotification, NULL, NULL, YES);
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), kDateLyricsLegacyCurrentLineChangedNotification, NULL, NULL, YES);
