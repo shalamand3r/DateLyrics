@@ -13,17 +13,59 @@ static CFStringRef const kDateLyricsLegacyCurrentLineChangedNotification = CFSTR
 static UIImage *_cachedGithubIcon = nil;
 
 static NSArray<NSDictionary<NSString *, NSString *> *> *DateLyricsFontOptions(void) {
-	return @[
-		@{ @"title": @"Avenir Next", @"value": @"AvenirNext-DemiBold" },
-		@{ @"title": @"American Typewriter", @"value": @"AmericanTypewriter-Bold" },
-		@{ @"title": @"Chalkboard", @"value": @"ChalkboardSE-Bold" },
-		@{ @"title": @"Didot", @"value": @"Didot-Bold" },
-		@{ @"title": @"Futura", @"value": @"Futura-Bold" },
-		@{ @"title": @"Georgia", @"value": @"Georgia-Bold" },
-		@{ @"title": @"Marker Felt", @"value": @"MarkerFelt-Wide" },
-		@{ @"title": @"Noteworthy", @"value": @"Noteworthy-Bold" },
-		@{ @"title": @"Palatino", @"value": @"Palatino-Bold" }
-	];
+	static NSArray<NSDictionary<NSString *, NSString *> *> *cachedOptions = nil;
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		NSArray<NSString *> *preferenceOrder = @[@"DemiBold", @"Semibold", @"SemiBold", @"Bold", @"Medium", @"Regular", @"Roman", @"Book", @"Light"];
+		NSMutableArray<NSDictionary<NSString *, NSString *> *> *options = [NSMutableArray array];
+		NSArray<NSString *> *families = [[UIFont familyNames] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+
+		for (NSString *family in families) {
+			NSArray<NSString *> *fontNames = [[UIFont fontNamesForFamilyName:family] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+			if (fontNames.count == 0) continue;
+
+			NSString *chosenFontName = fontNames.firstObject;
+			NSInteger chosenRank = NSIntegerMax;
+			for (NSString *fontName in fontNames) {
+				NSString *lowerName = fontName.lowercaseString;
+				NSInteger rank = preferenceOrder.count + 10;
+				for (NSUInteger i = 0; i < preferenceOrder.count; i++) {
+					if ([lowerName containsString:[preferenceOrder[i] lowercaseString]]) {
+						rank = (NSInteger)i;
+						break;
+					}
+				}
+				if (rank < chosenRank) {
+					chosenRank = rank;
+					chosenFontName = fontName;
+				}
+			}
+
+			[options addObject:@{
+				@"title": family,
+				@"value": chosenFontName
+			}];
+		}
+
+		cachedOptions = [options copy];
+	});
+	return cachedOptions;
+}
+
+static NSArray<NSString *> *DateLyricsFontTitles(void) {
+	NSMutableArray<NSString *> *titles = [NSMutableArray array];
+	for (NSDictionary<NSString *, NSString *> *option in DateLyricsFontOptions()) {
+		[titles addObject:option[@"title"] ?: option[@"value"]];
+	}
+	return [titles copy];
+}
+
+static NSArray<NSString *> *DateLyricsFontValues(void) {
+	NSMutableArray<NSString *> *values = [NSMutableArray array];
+	for (NSDictionary<NSString *, NSString *> *option in DateLyricsFontOptions()) {
+		[values addObject:option[@"value"] ?: @""];
+	}
+	return [values copy];
 }
 
 @interface LSApplicationProxy : NSObject
@@ -35,6 +77,10 @@ static NSArray<NSDictionary<NSString *, NSString *> *> *DateLyricsFontOptions(vo
 @property (nonatomic, strong) UIImageView *headerImageView;
 @end
 
+@interface DateLyricsFontListController ()
+@property (nonatomic, strong) UILabel *previewLabel;
+@end
+
 @implementation DateLyricsRootListController
 
 - (NSArray *)specifiers {
@@ -42,6 +88,7 @@ static NSArray<NSDictionary<NSString *, NSString *> *> *DateLyricsFontOptions(vo
 		NSMutableArray *specs = [[self loadSpecifiersFromPlistName:@"Root" target:self] mutableCopy];
 		for (PSSpecifier *spec in specs) {
 			NSString *specifierID = [spec propertyForKey:@"id"];
+			NSString *specifierKey = [spec propertyForKey:@"key"];
 
 			if ([specifierID isEqualToString:@"GitHubCell"]) {
 				if (_cachedGithubIcon) {
@@ -53,11 +100,24 @@ static NSArray<NSDictionary<NSString *, NSString *> *> *DateLyricsFontOptions(vo
 					[spec setProperty:blank forKey:@"iconImage"];
 				}
 			}
+
+			if ([specifierKey isEqualToString:@"CustomFontName"]) {
+				[spec setProperty:@"titlesDataSource" forKey:@"titlesDataSource"];
+				[spec setProperty:@"valuesDataSource" forKey:@"valuesDataSource"];
+			}
 		}
 
 		_specifiers = [specs copy];
 	}
 	return _specifiers;
+}
+
+- (NSArray *)titlesDataSource {
+	return DateLyricsFontTitles();
+}
+
+- (NSArray *)valuesDataSource {
+	return DateLyricsFontValues();
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -288,29 +348,85 @@ static NSArray<NSDictionary<NSString *, NSString *> *> *DateLyricsFontOptions(vo
 
 @implementation DateLyricsFontListController
 
+- (NSString *)amlSelectedFontName {
+	NSUserDefaults *prefs = [[NSUserDefaults alloc] initWithSuiteName:kDateLyricsPrefsSuite];
+	NSString *fontName = [prefs objectForKey:@"CustomFontName"];
+	return [fontName isKindOfClass:NSString.class] && fontName.length > 0 ? fontName : @"AvenirNext-DemiBold";
+}
+
+- (void)amlUpdatePreviewLabel {
+	NSString *fontName = [self amlSelectedFontName];
+	UIFont *previewFont = [UIFont fontWithName:fontName size:28.0] ?: [UIFont boldSystemFontOfSize:28.0];
+	self.previewLabel.font = previewFont;
+	self.previewLabel.text = @"I'm working late, cause I'm a singer";
+	self.previewLabel.textColor = [UIColor labelColor];
+}
+
 - (void)viewDidLoad {
 	[super viewDidLoad];
 	self.title = @"Font Style";
+	self.table.rowHeight = 44.0;
+
+	UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.table.bounds.size.width, 108)];
+	headerView.backgroundColor = [UIColor clearColor];
+
+	UIView *previewCard = [[UIView alloc] initWithFrame:CGRectInset(headerView.bounds, 16.0, 10.0)];
+	previewCard.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	previewCard.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
+	previewCard.layer.cornerRadius = 12.0;
+	previewCard.layer.masksToBounds = YES;
+	[headerView addSubview:previewCard];
+
+	UILabel *previewLabel = [[UILabel alloc] initWithFrame:CGRectInset(previewCard.bounds, 16.0, 14.0)];
+	previewLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	previewLabel.textAlignment = NSTextAlignmentCenter;
+	previewLabel.numberOfLines = 2;
+	previewLabel.adjustsFontSizeToFitWidth = YES;
+	previewLabel.minimumScaleFactor = 0.5;
+	previewLabel.lineBreakMode = NSLineBreakByWordWrapping;
+	[previewCard addSubview:previewLabel];
+	self.previewLabel = previewLabel;
+	self.table.tableHeaderView = headerView;
+	[self amlUpdatePreviewLabel];
+}
+
+- (void)viewDidLayoutSubviews {
+	[super viewDidLayoutSubviews];
+	UIView *headerView = self.table.tableHeaderView;
+	if (!headerView) return;
+	CGRect frame = headerView.frame;
+	CGFloat width = CGRectGetWidth(self.table.bounds);
+	if (fabs(frame.size.width - width) > 0.5) {
+		frame.size.width = width;
+		headerView.frame = frame;
+		self.table.tableHeaderView = headerView;
+	}
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+	[super viewWillAppear:animated];
+	[self amlUpdatePreviewLabel];
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+	[super tableView:tableView didSelectRowAtIndexPath:indexPath];
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		[self amlUpdatePreviewLabel];
+	});
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
 	UITableViewCell *cell = [super tableView:tableView cellForRowAtIndexPath:indexPath];
 	if (!cell) return cell;
-
-	NSInteger row = indexPath.row;
-	if (row < 0 || row >= (NSInteger)DateLyricsFontOptions().count) return cell;
-
-	NSDictionary<NSString *, NSString *> *option = DateLyricsFontOptions()[(NSUInteger)row];
-	NSString *fontName = option[@"value"];
-	UIFont *previewFont = [UIFont fontWithName:fontName size:20.0] ?: [UIFont boldSystemFontOfSize:20.0];
-
-	cell.textLabel.font = previewFont;
 	cell.textLabel.numberOfLines = 1;
-	cell.textLabel.adjustsFontSizeToFitWidth = YES;
-	cell.textLabel.minimumScaleFactor = 0.55;
+	cell.textLabel.lineBreakMode = NSLineBreakByTruncatingTail;
 	cell.detailTextLabel.text = nil;
 
 	return cell;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+	return 44.0;
 }
 
 @end

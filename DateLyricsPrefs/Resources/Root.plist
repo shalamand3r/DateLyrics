@@ -94,30 +94,6 @@
 			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
 			<key>requires</key>
 			<string>UseCustomFont</string>
-			<key>validTitles</key>
-			<array>
-				<string>Avenir Next</string>
-				<string>American Typewriter</string>
-				<string>Chalkboard</string>
-				<string>Didot</string>
-				<string>Futura</string>
-				<string>Georgia</string>
-				<string>Marker Felt</string>
-				<string>Noteworthy</string>
-				<string>Palatino</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<string>AvenirNext-DemiBold</string>
-				<string>AmericanTypewriter-Bold</string>
-				<string>ChalkboardSE-Bold</string>
-				<string>Didot-Bold</string>
-				<string>Futura-Bold</string>
-				<string>Georgia-Bold</string>
-				<string>MarkerFelt-Wide</string>
-				<string>Noteworthy-Bold</string>
-				<string>Palatino-Bold</string>
-			</array>
 		</dict>
 
 		<dict>
