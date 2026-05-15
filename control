@@ -1,6 +1,6 @@
 Package: com.shalamand3r.datelyrics
 Name: DateLyrics
-Version: 1.0
+Version: 2.0
 Architecture: iphoneos-arm64
 Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 16.0)
 Description: Apple Music lyrics in the Lock Screen date view!
