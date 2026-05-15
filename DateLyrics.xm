@@ -903,6 +903,8 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
         if (elapsedTime >= line.begin) {
             title = line.text;
             NSRange activeRange = NSMakeRange(NSNotFound, 0);
+            NSRange previousWordRange = NSMakeRange(NSNotFound, 0);
+            NSTimeInterval previousWordEnd = -1.0;
             NSUInteger cursor = 0;
             DateLyricsDebugLog(@"EvaluateLine elapsed=%.3f lineBegin=%.3f lineEnd=%.3f text=\"%@\" wordCount=%lu",
                 elapsedTime,
@@ -912,6 +914,7 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
                 (unsigned long)line.words.count);
             for (DateLyricsTimedWord *word in line.words) {
                 cursor += word.separatorBefore.length;
+                NSRange wordRange = NSMakeRange(cursor, word.text.length);
                 DateLyricsDebugLog(@"  cursor=%lu wordBegin=%.3f wordEnd=%.3f sepLen=%lu wordLen=%lu text=\"%@\" active=%@",
                     (unsigned long)cursor,
                     word.begin,
@@ -921,17 +924,34 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
                     DateLyricsDebugString(word.text),
                     (elapsedTime >= word.begin && elapsedTime < word.end) ? @"YES" : @"NO");
                 if (activeRange.location == NSNotFound && elapsedTime >= word.begin && elapsedTime < word.end) {
-                    activeRange = NSMakeRange(cursor, word.text.length);
+                    activeRange = wordRange;
                     nextWordStart = word.end;
                     DateLyricsDebugLog(@"  chose activeRange=%@ nextWordStart=%.3f", DateLyricsDebugRangeString(activeRange), nextWordStart);
                 } else if (word.begin > elapsedTime) {
+                    if (previousWordRange.location != NSNotFound && elapsedTime >= previousWordEnd) {
+                        activeRange = previousWordRange;
+                        DateLyricsDebugLog(@"  gap after previous word, reusing activeRange=%@ until nextWordStart=%.3f",
+                            DateLyricsDebugRangeString(activeRange),
+                            word.begin);
+                    }
                     if (nextWordStart < 0 || word.begin < nextWordStart) {
                         nextWordStart = word.begin;
                     }
                     DateLyricsDebugLog(@"  upcoming word begin=%.3f becomes nextWordStart=%.3f", word.begin, nextWordStart);
                     break;
                 }
+                previousWordRange = wordRange;
+                previousWordEnd = word.end;
                 cursor += word.text.length;
+            }
+            if (activeRange.location == NSNotFound &&
+                previousWordRange.location != NSNotFound &&
+                elapsedTime >= previousWordEnd &&
+                elapsedTime <= line.end) {
+                activeRange = previousWordRange;
+                DateLyricsDebugLog(@"  trailing gap at end of line, reusing activeRange=%@ through lineEnd=%.3f",
+                    DateLyricsDebugRangeString(activeRange),
+                    line.end);
             }
             wordPayload = DateLyricsMakePayload(line.text, activeRange);
             DateLyricsDebugLog(@"Selected line payload text=\"%@\" range=%@ nextWordStart=%.3f",
