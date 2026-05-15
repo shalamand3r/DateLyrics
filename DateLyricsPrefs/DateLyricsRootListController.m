@@ -12,6 +12,20 @@ static CFStringRef const kDateLyricsCurrentLineChangedNotification = CFSTR("com.
 static CFStringRef const kDateLyricsLegacyCurrentLineChangedNotification = CFSTR("com.82flex.amlyrics.current-line.changed");
 static UIImage *_cachedGithubIcon = nil;
 
+static NSArray<NSDictionary<NSString *, NSString *> *> *DateLyricsFontOptions(void) {
+	return @[
+		@{ @"title": @"Avenir Next", @"value": @"AvenirNext-DemiBold" },
+		@{ @"title": @"American Typewriter", @"value": @"AmericanTypewriter-Bold" },
+		@{ @"title": @"Chalkboard", @"value": @"ChalkboardSE-Bold" },
+		@{ @"title": @"Didot", @"value": @"Didot-Bold" },
+		@{ @"title": @"Futura", @"value": @"Futura-Bold" },
+		@{ @"title": @"Georgia", @"value": @"Georgia-Bold" },
+		@{ @"title": @"Marker Felt", @"value": @"MarkerFelt-Wide" },
+		@{ @"title": @"Noteworthy", @"value": @"Noteworthy-Bold" },
+		@{ @"title": @"Palatino", @"value": @"Palatino-Bold" }
+	];
+}
+
 @interface LSApplicationProxy : NSObject
 @property (nonatomic, readonly) NSURL *dataContainerURL;
 + (id)applicationProxyForIdentifier:(id)arg1;
@@ -174,6 +188,8 @@ static UIImage *_cachedGithubIcon = nil;
     CFPreferencesSetAppValue((__bridge CFStringRef)@"WordHighlighting", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"HighlightTrail", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"HighlightStyle", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"UseCustomFont", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
+    CFPreferencesSetAppValue((__bridge CFStringRef)@"CustomFontName", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"StrokeWidth", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"MinimumScale", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
     CFPreferencesSetAppValue((__bridge CFStringRef)@"PauseTimeout", NULL, (__bridge CFStringRef)kDateLyricsPrefsSuite);
@@ -266,6 +282,35 @@ static UIImage *_cachedGithubIcon = nil;
 			}
 		}
 	}] resume];
+}
+
+@end
+
+@implementation DateLyricsFontListController
+
+- (void)viewDidLoad {
+	[super viewDidLoad];
+	self.title = @"Font Style";
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+	UITableViewCell *cell = [super tableView:tableView cellForRowAtIndexPath:indexPath];
+	if (!cell) return cell;
+
+	NSInteger row = indexPath.row;
+	if (row < 0 || row >= (NSInteger)DateLyricsFontOptions().count) return cell;
+
+	NSDictionary<NSString *, NSString *> *option = DateLyricsFontOptions()[(NSUInteger)row];
+	NSString *fontName = option[@"value"];
+	UIFont *previewFont = [UIFont fontWithName:fontName size:20.0] ?: [UIFont boldSystemFontOfSize:20.0];
+
+	cell.textLabel.font = previewFont;
+	cell.textLabel.numberOfLines = 1;
+	cell.textLabel.adjustsFontSizeToFitWidth = YES;
+	cell.textLabel.minimumScaleFactor = 0.55;
+	cell.detailTextLabel.text = nil;
+
+	return cell;
 }
 
 @end

@@ -140,6 +140,8 @@ static BOOL gDateLyricsForceLowercase = NO;
 static BOOL gDateLyricsWordHighlighting = YES;
 static BOOL gDateLyricsHighlightTrail = NO;
 static NSInteger gDateLyricsHighlightStyle = 0;
+static BOOL gDateLyricsUseCustomFont = NO;
+static NSString *gDateLyricsCustomFontName = nil;
 static BOOL gDateLyricsTransitionsEnabled = YES;
 static NSInteger gDateLyricsTransitionStyle = 0;
 static NSTimeInterval gDateLyricsTransitionDuration = 0.28;
@@ -355,6 +357,16 @@ static void DateLyricsApplyLabelContent(_UIAnimatingLabel *label, NSString *disp
         label.attributedText = nil;
         label.text = displayText;
     }
+}
+
+static UIFont *DateLyricsConfiguredFontForLabel(_UIAnimatingLabel *label) {
+    UIFont *baseFont = label.font ?: [UIFont systemFontOfSize:34.0 weight:UIFontWeightSemibold];
+    if (!gDateLyricsUseCustomFont || gDateLyricsCustomFontName.length == 0) {
+        return baseFont;
+    }
+
+    UIFont *customFont = [UIFont fontWithName:gDateLyricsCustomFontName size:baseFont.pointSize];
+    return customFont ?: baseFont;
 }
 
 static void DateLyricsAnimateLabelTransition(_UIAnimatingLabel *label, NSString *previousDisplayText, NSString *displayText, NSAttributedString *attrDisplayText) {
@@ -1345,6 +1357,7 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     }
 
     self.numberOfLines = 1;
+    self.font = DateLyricsConfiguredFontForLabel(self);
     self.adjustsFontSizeToFitWidth = YES;
     self.minimumScaleFactor = gDateLyricsMinimumScale;
     self.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -1393,6 +1406,8 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     NSNumber *valWord = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("WordHighlighting"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valTrail = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("HighlightTrail"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valStyle = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("HighlightStyle"), CFSTR("com.shalamand3r.datelyrics"));
+    NSNumber *valUseCustomFont = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("UseCustomFont"), CFSTR("com.shalamand3r.datelyrics"));
+    NSString *valCustomFontName = (__bridge_transfer NSString *)CFPreferencesCopyAppValue(CFSTR("CustomFontName"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valTransitionsEnabled = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("TransitionsEnabled"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valTransitionStyle = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("TransitionStyle"), CFSTR("com.shalamand3r.datelyrics"));
     NSNumber *valTransitionDuration = (__bridge_transfer NSNumber *)CFPreferencesCopyAppValue(CFSTR("TransitionDuration"), CFSTR("com.shalamand3r.datelyrics"));
@@ -1411,6 +1426,8 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
             if (!valWord) valWord = prefs[@"WordHighlighting"];
             if (!valTrail) valTrail = prefs[@"HighlightTrail"];
             if (!valStyle) valStyle = prefs[@"HighlightStyle"];
+            if (!valUseCustomFont) valUseCustomFont = prefs[@"UseCustomFont"];
+            if (!valCustomFontName) valCustomFontName = prefs[@"CustomFontName"];
             if (!valTransitionsEnabled) valTransitionsEnabled = prefs[@"TransitionsEnabled"];
             if (!valTransitionStyle) valTransitionStyle = prefs[@"TransitionStyle"];
             if (!valTransitionDuration) valTransitionDuration = prefs[@"TransitionDuration"];
@@ -1425,6 +1442,8 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
     gDateLyricsWordHighlighting = valWord ? [valWord boolValue] : YES;
     gDateLyricsHighlightTrail = valTrail ? [valTrail boolValue] : NO;
     gDateLyricsHighlightStyle = valStyle ? [valStyle integerValue] : 0;
+    gDateLyricsUseCustomFont = valUseCustomFont ? [valUseCustomFont boolValue] : NO;
+    gDateLyricsCustomFontName = [valCustomFontName isKindOfClass:NSString.class] ? [valCustomFontName copy] : nil;
     gDateLyricsTransitionsEnabled = valTransitionsEnabled ? [valTransitionsEnabled boolValue] : YES;
     NSInteger transitionStyle = valTransitionStyle ? [valTransitionStyle integerValue] : DateLyricsTransitionStyleFade;
     if (transitionStyle < DateLyricsTransitionStyleFade || transitionStyle > DateLyricsTransitionStylePop) {
@@ -1443,6 +1462,8 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
         } else if (DateLyricsIsMusicHost()) {
             DateLyricsPublishPayload(nil);
         }
+    } else if (DateLyricsIsSpringBoardHost()) {
+        DateLyricsApplyCurrentLineToAllCoverSheets();
     }
 }
 

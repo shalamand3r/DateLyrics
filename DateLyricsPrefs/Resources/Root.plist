@@ -55,9 +55,78 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Typography</string>
+			<key>footerText</key>
+			<string>Pick a custom font for lyric lines. The system date keeps its normal look when lyrics are hidden.</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>UseCustomFont</string>
+			<key>label</key>
+			<string>Custom Font</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>id</key>
+			<string>CustomFontSpecifier</string>
+			<key>detail</key>
+			<string>DateLyricsFontListController</string>
+			<key>key</key>
+			<string>CustomFontName</string>
+			<key>label</key>
+			<string>Font Style</string>
+			<key>default</key>
+			<string>AvenirNext-DemiBold</string>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			<key>requires</key>
+			<string>UseCustomFont</string>
+			<key>validTitles</key>
+			<array>
+				<string>Avenir Next</string>
+				<string>American Typewriter</string>
+				<string>Chalkboard</string>
+				<string>Didot</string>
+				<string>Futura</string>
+				<string>Georgia</string>
+				<string>Marker Felt</string>
+				<string>Noteworthy</string>
+				<string>Palatino</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<string>AvenirNext-DemiBold</string>
+				<string>AmericanTypewriter-Bold</string>
+				<string>ChalkboardSE-Bold</string>
+				<string>Didot-Bold</string>
+				<string>Futura-Bold</string>
+				<string>Georgia-Bold</string>
+				<string>MarkerFelt-Wide</string>
+				<string>Noteworthy-Bold</string>
+				<string>Palatino-Bold</string>
+			</array>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>Syllable Highlighting</string>
 			<key>footerText</key>
-			<string>Only affects songs with syllable/word timing data.</string>
+			<string>Only affects songs with syllable/word timing data. In Stroke mode, use the outline thickness slider below to control how bold the highlighted syllables look.</string>
 		</dict>
 
 		<dict>
@@ -137,11 +206,11 @@
 				<key>key</key>
 			<string>StrokeWidth</string>
 			<key>label</key>
-			<string>Stroke Width</string>
+			<string>Outline Thickness</string>
 			<key>min</key>
 			<real>1.0</real>
 			<key>max</key>
-			<real>3.0</real>
+			<real>7.0</real>
 			<key>isSegmented</key>
 			<true/>
 			<key>segmentCount</key>
