@@ -102,6 +102,7 @@ typedef void (^ICURLSessionCompletionHandler)(ICURLResponse *, NSError *);
 @property (nonatomic, assign) NSTimeInterval end;
 @property (nonatomic, copy) NSString *text;
 @property (nonatomic, copy) NSString *separatorBefore;
+@property (nonatomic, assign, getter=isBackground) BOOL background;
 @end
 
 @interface DateLyricsTimedLine : NSObject
@@ -295,39 +296,22 @@ static NSDictionary *DateLyricsMakePayload(NSString *text, NSRange activeRange) 
     return payload;
 }
 
-static NSRange DateLyricsHighlightRangeForLyric(NSString *lyric, NSRange activeRange, BOOL includeTrail) {
-    if (![lyric isKindOfClass:NSString.class] || lyric.length == 0) return NSMakeRange(NSNotFound, 0);
-    if (activeRange.location == NSNotFound || activeRange.length == 0) return NSMakeRange(NSNotFound, 0);
-    if (NSMaxRange(activeRange) > lyric.length) return NSMakeRange(NSNotFound, 0);
-
-    NSCharacterSet *newlineSet = [NSCharacterSet newlineCharacterSet];
-    NSUInteger lineStart = 0;
-    NSUInteger highlightEnd = NSMaxRange(activeRange);
-
-    if (activeRange.location > 0) {
-        NSRange searchRange = NSMakeRange(0, activeRange.location);
-        NSRange previousNewline = [lyric rangeOfCharacterFromSet:newlineSet
-                                                        options:NSBackwardsSearch
-                                                          range:searchRange];
-        if (previousNewline.location != NSNotFound) {
-            lineStart = NSMaxRange(previousNewline);
-        }
+static NSDictionary *DateLyricsMakePayloadWithBackgroundRange(NSString *text, NSRange activeRange, NSRange backgroundRange) {
+    NSDictionary *basePayload = DateLyricsMakePayload(text, activeRange);
+    NSMutableDictionary *payload = nil;
+    if (basePayload) {
+        payload = [basePayload mutableCopy];
     }
-
-    NSRange forwardSearchRange = NSMakeRange(activeRange.location, lyric.length - activeRange.location);
-    NSRange nextNewline = [lyric rangeOfCharacterFromSet:newlineSet
-                                                 options:0
-                                                   range:forwardSearchRange];
-    if (nextNewline.location != NSNotFound && highlightEnd > nextNewline.location) {
-        highlightEnd = nextNewline.location;
+    if (payload.count == 0) return nil;
+    if (backgroundRange.location != NSNotFound && NSMaxRange(backgroundRange) <= text.length) {
+        payload[@"bgLoc"] = @(backgroundRange.location);
+        payload[@"bgLen"] = @(backgroundRange.length);
     }
-
-    if (highlightEnd <= activeRange.location) return NSMakeRange(NSNotFound, 0);
-
-    NSUInteger highlightStart = includeTrail ? lineStart : activeRange.location;
-    if (highlightStart >= highlightEnd) return NSMakeRange(NSNotFound, 0);
-
-    return NSMakeRange(highlightStart, highlightEnd - highlightStart);
+    DateLyricsDebugLog(@"MakePayloadWithBackground text=\"%@\" fg=%@ bg=%@",
+        DateLyricsDebugString(text),
+        DateLyricsDebugRangeString(activeRange),
+        DateLyricsDebugRangeString(backgroundRange));
+    return payload;
 }
 
 static NSString *DateLyricsSerializePayload(NSDictionary *payload) {
@@ -470,6 +454,7 @@ static NSString *GetLyricsRootPath(void) {
 @property (nonatomic, strong) NSMutableString *pendingSeparator;
 @property (nonatomic, strong) NSMutableString *currentSpanText;
 @property (nonatomic, assign) BOOL insideParagraph;
+@property (nonatomic, strong) NSMutableArray<NSNumber *> *spanBackgroundStack;
 @end
 
 @implementation DateLyricsWordTTMLParserDelegate
@@ -479,6 +464,7 @@ static NSString *GetLyricsRootPath(void) {
     if (self) {
         _lines = [NSMutableArray array];
         _pendingSeparator = [NSMutableString string];
+        _spanBackgroundStack = [NSMutableArray array];
     }
     return self;
 }
@@ -490,14 +476,19 @@ static NSString *GetLyricsRootPath(void) {
         self.currentLine.begin = DateLyricsParseTimeString(attributeDict[@"begin"]);
         self.currentLine.end = DateLyricsParseTimeString(attributeDict[@"end"]);
         self.currentWords = [NSMutableArray array];
+        [self.spanBackgroundStack removeAllObjects];
         [self.pendingSeparator setString:@""];
     } else if (self.insideParagraph && [elementName isEqualToString:@"span"]) {
+        NSString *role = attributeDict[@"ttm:role"] ?: attributeDict[@"role"];
+        BOOL isBackground = [role isEqualToString:@"x-bg"] || [[self.spanBackgroundStack lastObject] boolValue];
+        [self.spanBackgroundStack addObject:@(isBackground)];
         BOOL hasTiming = attributeDict[@"begin"] != nil || attributeDict[@"end"] != nil;
         if (hasTiming) {
             DateLyricsTimedWord *word = [DateLyricsTimedWord new];
             word.begin = DateLyricsParseTimeString(attributeDict[@"begin"]);
             word.end = DateLyricsParseTimeString(attributeDict[@"end"]);
             word.separatorBefore = [self.pendingSeparator copy] ?: @"";
+            word.background = isBackground;
             [self.currentWords addObject:word];
             self.currentSpanText = [NSMutableString string];
             [self.pendingSeparator setString:@""];
@@ -523,6 +514,9 @@ static NSString *GetLyricsRootPath(void) {
             }
             self.currentSpanText = nil;
         }
+        if (self.spanBackgroundStack.count > 0) {
+            [self.spanBackgroundStack removeLastObject];
+        }
     } else if ([elementName isEqualToString:@"p"] && self.currentLine) {
         NSMutableString *fullText = [NSMutableString string];
         for (DateLyricsTimedWord *word in self.currentWords) {
@@ -543,10 +537,11 @@ static NSString *GetLyricsRootPath(void) {
                 (unsigned long)self.currentLine.words.count);
             NSUInteger wordIndex = 0;
             for (DateLyricsTimedWord *word in self.currentLine.words) {
-                DateLyricsDebugLog(@"  word[%lu] begin=%.3f end=%.3f sep=\"%@\" text=\"%@\"",
+                DateLyricsDebugLog(@"  word[%lu] begin=%.3f end=%.3f bg=%@ sep=\"%@\" text=\"%@\"",
                     (unsigned long)wordIndex,
                     word.begin,
                     word.end,
+                    word.isBackground ? @"YES" : @"NO",
                     DateLyricsDebugString(word.separatorBefore),
                     DateLyricsDebugString(word.text));
                 wordIndex++;
@@ -556,6 +551,7 @@ static NSString *GetLyricsRootPath(void) {
         self.currentLine = nil;
         self.currentWords = nil;
         self.insideParagraph = NO;
+        [self.spanBackgroundStack removeAllObjects];
         [self.pendingSeparator setString:@""];
     }
 }
@@ -903,8 +899,21 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
         if (elapsedTime >= line.begin) {
             title = line.text;
             NSRange activeRange = NSMakeRange(NSNotFound, 0);
-            NSRange previousWordRange = NSMakeRange(NSNotFound, 0);
-            NSTimeInterval previousWordEnd = -1.0;
+            NSRange backgroundActiveRange = NSMakeRange(NSNotFound, 0);
+            NSRange previousForegroundWordRange = NSMakeRange(NSNotFound, 0);
+            NSRange previousBackgroundWordRange = NSMakeRange(NSNotFound, 0);
+            NSTimeInterval previousForegroundWordEnd = -1.0;
+            NSTimeInterval previousBackgroundWordEnd = -1.0;
+            NSUInteger activeRangeSegmentStart = NSNotFound;
+            NSUInteger backgroundActiveRangeSegmentStart = NSNotFound;
+            NSUInteger previousForegroundSegmentStart = NSNotFound;
+            NSUInteger previousBackgroundSegmentStart = NSNotFound;
+            NSTimeInterval nextForegroundWordStart = -1.0;
+            NSTimeInterval nextBackgroundWordStart = -1.0;
+            BOOL previousWordWasBackground = NO;
+            BOOL hasPreviousWord = NO;
+            NSTimeInterval activeForegroundWordBegin = -1.0;
+            NSTimeInterval activeBackgroundWordBegin = -1.0;
             NSUInteger cursor = 0;
             DateLyricsDebugLog(@"EvaluateLine elapsed=%.3f lineBegin=%.3f lineEnd=%.3f text=\"%@\" wordCount=%lu",
                 elapsedTime,
@@ -915,6 +924,10 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
             for (DateLyricsTimedWord *word in line.words) {
                 cursor += word.separatorBefore.length;
                 NSRange wordRange = NSMakeRange(cursor, word.text.length);
+                NSUInteger segmentStart = wordRange.location;
+                if (hasPreviousWord && previousWordWasBackground == word.isBackground) {
+                    segmentStart = word.isBackground ? previousBackgroundSegmentStart : previousForegroundSegmentStart;
+                }
                 DateLyricsDebugLog(@"  cursor=%lu wordBegin=%.3f wordEnd=%.3f sepLen=%lu wordLen=%lu text=\"%@\" active=%@",
                     (unsigned long)cursor,
                     word.begin,
@@ -923,40 +936,91 @@ static void AddTaskToQueue(NSInteger iTunesStoreID, NSInteger lyricsAdamID, NSUR
                     (unsigned long)word.text.length,
                     DateLyricsDebugString(word.text),
                     (elapsedTime >= word.begin && elapsedTime < word.end) ? @"YES" : @"NO");
-                if (activeRange.location == NSNotFound && elapsedTime >= word.begin && elapsedTime < word.end) {
-                    activeRange = wordRange;
-                    nextWordStart = word.end;
-                    DateLyricsDebugLog(@"  chose activeRange=%@ nextWordStart=%.3f", DateLyricsDebugRangeString(activeRange), nextWordStart);
-                } else if (word.begin > elapsedTime) {
-                    if (previousWordRange.location != NSNotFound && elapsedTime >= previousWordEnd) {
-                        activeRange = previousWordRange;
-                        DateLyricsDebugLog(@"  gap after previous word, reusing activeRange=%@ until nextWordStart=%.3f",
+                BOOL isActive = elapsedTime >= word.begin && elapsedTime < word.end;
+                if (word.isBackground) {
+                    if (isActive && (backgroundActiveRange.location == NSNotFound || word.begin >= activeBackgroundWordBegin)) {
+                        backgroundActiveRange = wordRange;
+                        backgroundActiveRangeSegmentStart = segmentStart;
+                        activeBackgroundWordBegin = word.begin;
+                        DateLyricsDebugLog(@"  chose backgroundActiveRange=%@ segmentStart=%lu",
+                            DateLyricsDebugRangeString(backgroundActiveRange),
+                            (unsigned long)backgroundActiveRangeSegmentStart);
+                    }
+                    if (word.begin > elapsedTime && (nextBackgroundWordStart < 0 || word.begin < nextBackgroundWordStart)) {
+                        nextBackgroundWordStart = word.begin;
+                    }
+                    if (word.end <= elapsedTime && word.end >= previousBackgroundWordEnd) {
+                        previousBackgroundWordRange = wordRange;
+                        previousBackgroundWordEnd = word.end;
+                        previousBackgroundSegmentStart = segmentStart;
+                    }
+                } else {
+                    if (isActive && (activeRange.location == NSNotFound || word.begin >= activeForegroundWordBegin)) {
+                        activeRange = wordRange;
+                        activeRangeSegmentStart = segmentStart;
+                        activeForegroundWordBegin = word.begin;
+                        DateLyricsDebugLog(@"  chose activeRange=%@ segmentStart=%lu",
                             DateLyricsDebugRangeString(activeRange),
-                            word.begin);
+                            (unsigned long)activeRangeSegmentStart);
                     }
-                    if (nextWordStart < 0 || word.begin < nextWordStart) {
-                        nextWordStart = word.begin;
+                    if (word.begin > elapsedTime && (nextForegroundWordStart < 0 || word.begin < nextForegroundWordStart)) {
+                        nextForegroundWordStart = word.begin;
                     }
-                    DateLyricsDebugLog(@"  upcoming word begin=%.3f becomes nextWordStart=%.3f", word.begin, nextWordStart);
-                    break;
+                    if (word.end <= elapsedTime && word.end >= previousForegroundWordEnd) {
+                        previousForegroundWordRange = wordRange;
+                        previousForegroundWordEnd = word.end;
+                        previousForegroundSegmentStart = segmentStart;
+                    }
                 }
-                previousWordRange = wordRange;
-                previousWordEnd = word.end;
+                hasPreviousWord = YES;
+                previousWordWasBackground = word.isBackground;
                 cursor += word.text.length;
             }
+
             if (activeRange.location == NSNotFound &&
-                previousWordRange.location != NSNotFound &&
-                elapsedTime >= previousWordEnd &&
+                previousForegroundWordRange.location != NSNotFound &&
+                elapsedTime >= previousForegroundWordEnd &&
+                (nextForegroundWordStart < 0 || elapsedTime < nextForegroundWordStart) &&
                 elapsedTime <= line.end) {
-                activeRange = previousWordRange;
-                DateLyricsDebugLog(@"  trailing gap at end of line, reusing activeRange=%@ through lineEnd=%.3f",
+                activeRange = previousForegroundWordRange;
+                activeRangeSegmentStart = previousForegroundSegmentStart;
+                DateLyricsDebugLog(@"  foreground gap, reusing activeRange=%@ through nextForegroundStart=%.3f",
                     DateLyricsDebugRangeString(activeRange),
-                    line.end);
+                    nextForegroundWordStart);
             }
-            wordPayload = DateLyricsMakePayload(line.text, activeRange);
-            DateLyricsDebugLog(@"Selected line payload text=\"%@\" range=%@ nextWordStart=%.3f",
+            if (backgroundActiveRange.location == NSNotFound &&
+                previousBackgroundWordRange.location != NSNotFound &&
+                elapsedTime >= previousBackgroundWordEnd &&
+                (nextBackgroundWordStart < 0 || elapsedTime < nextBackgroundWordStart) &&
+                elapsedTime <= line.end) {
+                backgroundActiveRange = previousBackgroundWordRange;
+                backgroundActiveRangeSegmentStart = previousBackgroundSegmentStart;
+                DateLyricsDebugLog(@"  background gap, reusing backgroundActiveRange=%@ through nextBackgroundStart=%.3f",
+                    DateLyricsDebugRangeString(backgroundActiveRange),
+                    nextBackgroundWordStart);
+            }
+
+            if (nextForegroundWordStart > elapsedTime) {
+                nextWordStart = nextForegroundWordStart;
+            }
+            if (nextBackgroundWordStart > elapsedTime) {
+                if (nextWordStart < 0 || nextBackgroundWordStart < nextWordStart) {
+                    nextWordStart = nextBackgroundWordStart;
+                }
+            }
+
+            if (activeRange.location != NSNotFound && gDateLyricsHighlightTrail && activeRangeSegmentStart != NSNotFound) {
+                activeRange = NSMakeRange(activeRangeSegmentStart, NSMaxRange(activeRange) - activeRangeSegmentStart);
+            }
+            if (backgroundActiveRange.location != NSNotFound && gDateLyricsHighlightTrail && backgroundActiveRangeSegmentStart != NSNotFound) {
+                backgroundActiveRange = NSMakeRange(backgroundActiveRangeSegmentStart, NSMaxRange(backgroundActiveRange) - backgroundActiveRangeSegmentStart);
+            }
+
+            wordPayload = DateLyricsMakePayloadWithBackgroundRange(line.text, activeRange, backgroundActiveRange);
+            DateLyricsDebugLog(@"Selected line payload text=\"%@\" fgRange=%@ bgRange=%@ nextWordStart=%.3f",
                 DateLyricsDebugString(line.text),
                 DateLyricsDebugRangeString(activeRange),
+                DateLyricsDebugRangeString(backgroundActiveRange),
                 nextWordStart);
             break;
         } else if (line.begin > elapsedTime) {
@@ -1299,25 +1363,46 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
     NSAttributedString *attrDisplayText = nil;
     NSNumber *locNum = payload[@"loc"];
     NSNumber *lenNum = payload[@"len"];
+    NSNumber *bgLocNum = payload[@"bgLoc"];
+    NSNumber *bgLenNum = payload[@"bgLen"];
     if (gDateLyricsWordHighlighting && locNum && lenNum) {
         NSUInteger loc = locNum.unsignedIntegerValue;
         NSUInteger len = lenNum.unsignedIntegerValue;
         if (loc != NSNotFound && loc + len <= lyric.length) {
             NSMutableAttributedString *mAttrStr = [[NSMutableAttributedString alloc] initWithString:lyric];
-            NSRange highlightRange = DateLyricsHighlightRangeForLyric(lyric, NSMakeRange(loc, len), gDateLyricsHighlightTrail);
-            if (highlightRange.location == NSNotFound || highlightRange.length == 0) {
-                highlightRange = NSMakeRange(loc, len);
+            NSRange highlightRange = NSMakeRange(loc, len);
+            NSRange backgroundHighlightRange = NSMakeRange(NSNotFound, 0);
+            if (bgLocNum && bgLenNum) {
+                NSUInteger bgLoc = bgLocNum.unsignedIntegerValue;
+                NSUInteger bgLen = bgLenNum.unsignedIntegerValue;
+                if (bgLoc != NSNotFound && bgLoc + bgLen <= lyric.length && bgLen > 0) {
+                    backgroundHighlightRange = NSMakeRange(bgLoc, bgLen);
+                }
             }
-            DateLyricsDebugLog(@"RenderLyric style=%ld trail=%@ lyric=\"%@\" incomingRange=%@ finalHighlightRange=%@",
+            DateLyricsDebugLog(@"RenderLyric style=%ld trail=%@ lyric=\"%@\" fgRange=%@ bgRange=%@",
                 (long)gDateLyricsHighlightStyle,
                 gDateLyricsHighlightTrail ? @"YES" : @"NO",
                 DateLyricsDebugString(lyric),
-                DateLyricsDebugRangeString(NSMakeRange(loc, len)),
-                DateLyricsDebugRangeString(highlightRange));
+                DateLyricsDebugRangeString(highlightRange),
+                DateLyricsDebugRangeString(backgroundHighlightRange));
 
             if (gDateLyricsHighlightStyle == 1) {
-                NSString *syllable = [lyric substringWithRange:highlightRange];
-                [mAttrStr replaceCharactersInRange:highlightRange withString:[syllable uppercaseString]];
+                NSMutableArray<NSValue *> *ranges = [NSMutableArray arrayWithObject:[NSValue valueWithRange:highlightRange]];
+                if (backgroundHighlightRange.location != NSNotFound && backgroundHighlightRange.length > 0) {
+                    [ranges addObject:[NSValue valueWithRange:backgroundHighlightRange]];
+                }
+                [ranges sortUsingComparator:^NSComparisonResult(NSValue *a, NSValue *b) {
+                    NSRange left = a.rangeValue;
+                    NSRange right = b.rangeValue;
+                    if (left.location > right.location) return NSOrderedAscending;
+                    if (left.location < right.location) return NSOrderedDescending;
+                    return NSOrderedSame;
+                }];
+                for (NSValue *value in ranges) {
+                    NSRange range = value.rangeValue;
+                    NSString *syllable = [lyric substringWithRange:range];
+                    [mAttrStr replaceCharactersInRange:range withString:[syllable uppercaseString]];
+                }
             } else {  
                 UIColor *textColor = self.textColor ?: [UIColor whiteColor];
                 // Explicitly zero the stroke on the whole string so reused animating labels
@@ -1325,6 +1410,10 @@ static void DateLyricsUpdateWidgetDateView(UIView *widgetSlot) {
                 [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@0 range:NSMakeRange(0, lyric.length)];
                 [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@(-gDateLyricsStrokeWidth) range:highlightRange];
                 [mAttrStr addAttribute:NSStrokeColorAttributeName value:textColor range:highlightRange];
+                if (backgroundHighlightRange.location != NSNotFound && backgroundHighlightRange.length > 0) {
+                    [mAttrStr addAttribute:NSStrokeWidthAttributeName value:@(-gDateLyricsStrokeWidth) range:backgroundHighlightRange];
+                    [mAttrStr addAttribute:NSStrokeColorAttributeName value:textColor range:backgroundHighlightRange];
+                }
             }
             attrDisplayText = mAttrStr;
         }
