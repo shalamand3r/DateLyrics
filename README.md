@@ -14,7 +14,7 @@ DateLyrics brings Apple Music lyrics to the lock screen date widget view. Lyrics
       </picture>
     </td>
     <td align="center">
-      <img src="thumbnail.png" width="400" alt="DateLyrics thumbnail">
+      <img src="thumbnail.png" width="380" alt="DateLyrics thumbnail">
     </td>
   </tr>
 </table>
