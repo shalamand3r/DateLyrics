@@ -12,7 +12,6 @@
 			<key>footerText</key>
 			<string>Respring required.</string>
 		</dict>
-
 		<dict>
 			<key>cell</key>
 			<string>PSSwitchCell</string>
@@ -32,7 +31,28 @@
 			<key>PostNotification</key>
 			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
 		</dict>
-
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Always-On Display</string>
+			<key>footerText</key>
+			<string>Show whole lyric lines on Always-On Display. When off, show the date and stop lyric updates until the display wakes. Requires a device with Always-On Display.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Lyrics on Always-On Display</string>
+			<key>key</key>
+			<string>AODEnabled</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
@@ -69,7 +89,7 @@
 			<key>label</key>
 			<string>Font Style</string>
 			<key>default</key>
-			<string>AvenirNext-DemiBold</string>
+			<string>AvenirNext-Regular</string>
 			<key>defaults</key>
 			<string>com.shalamand3r.datelyrics</string>
 			<key>PostNotification</key>
@@ -127,6 +147,23 @@
 			<string>com.shalamand3r.datelyrics</string>
 			<key>PostNotification</key>
 			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>ProgressiveFill</string>
+			<key>label</key>
+			<string>Progressive Segment Fill</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			<key>requires</key>
+			<string>WordHighlighting</string>
 		</dict>
 
 		<dict>
@@ -198,7 +235,7 @@
 			<key>max</key>
 			<real>0.8</real>
 			<key>default</key>
-			<real>0.3</real>
+			<real>0.33</real>
 			<key>showValue</key>
 			<true/>
 			<key>defaults</key>
@@ -226,7 +263,7 @@
 			<key>label</key>
 			<string>Split Long Lines</string>
 			<key>default</key>
-			<true/>
+			<false/>
 			<key>defaults</key>
 			<string>com.shalamand3r.datelyrics</string>
 			<key>PostNotification</key>
@@ -265,7 +302,7 @@
 			<key>label</key>
 			<string>Show Adlibs</string>
 			<key>default</key>
-			<false/>
+			<true/>
 			<key>defaults</key>
 			<string>com.shalamand3r.datelyrics</string>
 			<key>PostNotification</key>
@@ -274,26 +311,7 @@
 			<string>ShowAdlibs</string>
 		</dict>
 
-		<dict>
-			<key>cell</key>
-			<string>PSSliderCell</string>
-			<key>key</key>
-			<string>MinimumScale</string>
-			<key>label</key>
-			<string>Minimum Scale</string>
-			<key>min</key>
-			<real>0.3</real>
-			<key>max</key>
-			<real>1.0</real>
-			<key>default</key>
-			<real>0.55</real>
-			<key>showValue</key>
-			<true/>
-			<key>defaults</key>
-			<string>com.shalamand3r.datelyrics</string>
-			<key>PostNotification</key>
-			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
-		</dict>
+
 
 		<dict>
 			<key>cell</key>
@@ -322,7 +340,7 @@
 			<key>snapsToSegment</key>
 			<true/>
 			<key>default</key>
-			<real>2.0</real>
+			<real>5.0</real>
 			<key>showValue</key>
 			<true/>
 			<key>defaults</key>
@@ -335,9 +353,51 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Online Lyrics</string>
+			<key>footerText</key>
+			<string>Find missing lyrics, upgrade line-by-line lyrics to word-by-word timing, and support other streaming apps.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>MusixmatchEnabled</string>
+			<key>label</key>
+			<string>Online Lyrics</string>
+			<key>iconImageSystem</key>
+			<dict>
+				<key>name</key>
+				<string>globe</string>
+			</dict>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>DateLyricsProviderOrderController</string>
+			<key>label</key>
+			<string>Lyric Services</string>
+			<key>iconImageSystem</key>
+			<dict>
+				<key>name</key>
+				<string>line.3.horizontal</string>
+			</dict>
+		</dict>
+
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>Experimental</string>
 			<key>footerText</key>
-			<string>Advanced options including haptics.</string>
+			<string>Experimental music-app support and Always-On Display options.</string>
 		</dict>
 
 		<dict>
@@ -353,48 +413,6 @@
 			<dict>
 				<key>name</key>
 				<string>flask.fill</string>
-			</dict>
-		</dict>
-
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Actions</string>
-			<key>footerText</key>
-			<string>Close Apple Music to apply changes.</string>
-		</dict>
-
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>id</key>
-			<string>amlKillMusic</string>
-			<key>label</key>
-			<string>Close Apple Music</string>
-			<key>action</key>
-			<string>amlKillMusic</string>
-		</dict>
-
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>label</key>
-			<string>Reset Settings</string>
-			<key>action</key>
-			<string>resetSettings</string>
-			<key>isDestructive</key>
-			<true/>
-			<key>confirmation</key>
-			<dict>
-				<key>prompt</key>
-				<string>This will clear all DateLyrics caches and reset preferences. Are you sure?</string>
-				<key>title</key>
-				<string>Reset All</string>
-				<key>okTitle</key>
-				<string>Reset</string>
-				<key>cancelTitle</key>
-				<string>Cancel</string>
 			</dict>
 		</dict>
 

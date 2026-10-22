@@ -1,17 +1,40 @@
-# Theos
+# theos
 .theos/
 packages/
 obj/
 *.deb
 
-# Logs and References
+# logs and references
 reference/
 *.log
 
-# macOS
+# macos
 .DS_Store
 
-# Editor
+# editor
 .vscode/
 .cache/
 compile_commands.json
+
+# diagnostics and credentials
+__pycache__/
+*.pyc
+*.ips
+*.jsonl
+*.bak
+.env
+.env.local
+*.pem
+*.key
+
+# media and drafts
+*.mp4
+*.html
+DateLyrics-Showcase-Poster.jpg
+RELEASE_POST.md
+
+# test harness and dev notes
+tools/perf-harness/
+tools/sim-harness/
+MAINTAINING.md
+PERFORMANCE.md

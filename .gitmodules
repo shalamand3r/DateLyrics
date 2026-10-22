@@ -1,0 +1,6 @@
+[submodule "CoreLyrics"]
+	path = CoreLyrics
+	url = ../CoreLyrics
+[submodule "LyricBridge"]
+	path = LyricBridge
+	url = ../LyricBridge

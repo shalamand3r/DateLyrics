@@ -5,34 +5,34 @@
       <ttm:agent type="person" xml:id="v1"/>
     </metadata>
   </head>
-  <body dur="0:42.000">
-    <div begin="0.000" end="42.000" itunes:songPart="Verse">
-      <p begin="0.500" end="4.500" itunes:key="L1" ttm:agent="v1">
-        <span begin="0.500" end="1.050">Life's</span> <span begin="1.050" end="1.750">better</span> <span begin="1.750" end="2.150">on</span> <span begin="2.150" end="4.500">Saturn</span>
+  <body dur="0:25.572">
+    <div begin="0.000" end="25.572" itunes:songPart="Verse">
+      <p begin="0.500" end="2.938" itunes:key="L1" ttm:agent="v1">
+        <span begin="0.500" end="0.926">Life's</span> <span begin="0.926" end="1.539">better</span> <span begin="1.539" end="1.747">on</span> <span begin="1.747" end="2.938">Saturn</span>
       </p>
-      <p begin="5.000" end="9.000" itunes:key="L2" ttm:agent="v1">
-        <span begin="5.000" end="5.600">Got</span> <span begin="5.600" end="5.950">to</span> <span begin="5.950" end="6.450">break</span> <span begin="6.450" end="6.800">this</span> <span begin="6.800" end="9.000">pattern</span>
+      <p begin="3.142" end="5.566" itunes:key="L2" ttm:agent="v1">
+        <span begin="3.142" end="3.610">Got</span> <span begin="3.610" end="3.897">to</span> <span begin="3.897" end="4.230">break</span> <span begin="4.230" end="4.563">this</span> <span begin="4.563" end="5.566">pattern</span>
       </p>
-      <p begin="9.500" end="13.000" itunes:key="L3" ttm:agent="v1">
-        <span begin="9.500" end="9.850">Of</span> <span begin="9.850" end="10.600">floating</span> <span begin="10.600" end="13.000">away</span>
+      <p begin="5.664" end="7.565" itunes:key="L3" ttm:agent="v1">
+        <span begin="5.664" end="5.857">Of</span> <span begin="5.857" end="6.588">floating</span> <span begin="6.588" end="7.565">away</span>
       </p>
-      <p begin="14.000" end="19.500" itunes:key="L4" ttm:agent="v1">
-        <span begin="14.000" end="18.500">Ooh</span> <span ttm:role="x-bg"><span begin="15.200" end="16.700">(Ooh,</span> <span begin="16.700" end="19.500">ooh)</span></span>
+      <p begin="7.265" end="11.407" itunes:key="L4" ttm:agent="v1">
+        <span begin="7.265" end="10.645">Ooh</span> <span ttm:role="x-bg"><span begin="10.645" end="11.145">(Ooh,</span> <span begin="11.145" end="11.407">ooh)</span></span>
       </p>
-      <p begin="20.000" end="24.000" itunes:key="L5" ttm:agent="v1">
-        <span begin="20.000" end="20.700">Find</span> <span begin="20.700" end="21.400">something</span> <span begin="21.400" end="21.900">worth</span> <span begin="21.900" end="24.000">saving</span>
+      <p begin="11.175" end="13.671" itunes:key="L5" ttm:agent="v1">
+        <span begin="11.175" end="11.690">Find</span> <span begin="11.690" end="12.311">something</span> <span begin="12.311" end="12.610">worth</span> <span begin="12.610" end="13.671">saving</span>
       </p>
-      <p begin="24.500" end="28.500" itunes:key="L6" ttm:agent="v1">
-        <span begin="24.500" end="25.200">It's</span> <span begin="25.200" end="25.550">all</span> <span begin="25.550" end="25.900">for</span> <span begin="25.900" end="26.200">the</span> <span begin="26.200" end="28.500">taking</span>
+      <p begin="13.921" end="16.386" itunes:key="L6" ttm:agent="v1">
+        <span begin="13.921" end="14.412">It's</span> <span begin="14.412" end="14.694">all</span> <span begin="14.694" end="15.034">for</span> <span begin="15.034" end="15.313">the</span> <span begin="15.313" end="16.386">taking</span>
       </p>
-      <p begin="29.000" end="33.000" itunes:key="L7" ttm:agent="v1">
-        <span begin="29.000" end="29.600">I'll</span> <span begin="29.600" end="30.350">always</span> <span begin="30.350" end="33.000">say</span>
+      <p begin="16.644" end="18.183" itunes:key="L7" ttm:agent="v1">
+        <span begin="16.644" end="16.952">I'll</span> <span begin="16.952" end="17.660">always</span> <span begin="17.660" end="18.183">say</span>
       </p>
-      <p begin="33.500" end="38.500" itunes:key="L8" ttm:agent="v1">
-        <span begin="33.500" end="34.300">I'll</span> <span begin="34.300" end="35.000">be</span> <span begin="35.000" end="35.700">better</span> <span begin="35.700" end="36.100">on</span> <span begin="36.100" end="38.500">Saturn</span>
+      <p begin="18.288" end="21.736" itunes:key="L8" ttm:agent="v1">
+        <span begin="18.288" end="19.053">I'll</span> <span begin="19.053" end="19.749">be</span> <span begin="19.749" end="20.314">better</span> <span begin="20.314" end="20.695">on</span> <span begin="20.695" end="21.736">Saturn</span>
       </p>
-      <p begin="39.000" end="42.000" itunes:key="L9" ttm:agent="v1">
-        <span begin="39.000" end="39.650">None</span> <span begin="39.650" end="40.050">of</span> <span begin="40.050" end="40.450">this</span> <span begin="40.450" end="42.000">matters</span>
+      <p begin="22.246" end="24.572" itunes:key="L9" ttm:agent="v1">
+        <span begin="22.246" end="22.625">None</span> <span begin="22.625" end="22.990">of</span> <span begin="22.990" end="23.342">this</span> <span begin="23.342" end="24.572">matters</span>
       </p>
     </div>
   </body>

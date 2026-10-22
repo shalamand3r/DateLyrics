@@ -1,0 +1,8 @@
+DateLyrics uses Brad Conte's public-domain DES implementation:
+https://github.com/B-Con/crypto-algorithms
+
+The upstream author releases this code into the public domain without restrictions
+or warranties. DateLyrics namespaces its symbols, uses unsigned shifts, and applies
+QQ's legacy encoding differences: S-box 2 entry 23 is 15, S-box 4 entry 53 is 10,
+the PC-2 right-half offset is 27, and bytes are reversed within each 32-bit input
+and output word. This decoder only reads lyric data; it does not secure credentials.

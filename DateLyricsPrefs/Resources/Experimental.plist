@@ -4,37 +4,85 @@
 <dict>
 	<key>items</key>
 	<array>
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Other Music Apps</string>
+            <key>footerText</key><string>Configure external lyrics fallback for Spotify, YouTube, and other music apps.</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>External App Lyrics</string>
+            <key>key</key><string>ExternalAppsEnabled</string>
+            <key>default</key><true/>
+            <key>defaults</key><string>com.shalamand3r.datelyrics</string>
+            <key>PostNotification</key><string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Always-On Display</string>
+            <key>footerText</key><string>Request one extra refresh 10% into each lyric line’s visibility. Retries stop before the next line and when the display wakes or AOD lyrics are off. Requires Always-On Display support.</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Retry AOD Line Refresh</string>
+            <key>key</key><string>AODRefreshRetry</string>
+            <key>default</key><true/>
+            <key>defaults</key><string>com.shalamand3r.datelyrics</string>
+            <key>PostNotification</key><string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+        </dict>
+
 
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Musixmatch Fallback</string>
+			<string>Storage &amp; Cache</string>
 			<key>footerText</key>
-			<string>Apple Music lyrics remain first priority. Musixmatch fills missing timed lyrics and may upgrade Apple line-sync to word-sync when available. This unofficial service may change or rate-limit.</string>
+			<string>Delete all locally saved lyrics and score files to force fresh lookups on next playback.</string>
 		</dict>
 		<dict>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>key</key>
-			<string>MusixmatchEnabled</string>
+            <key>cell</key>
+			<string>PSButtonCell</string>
+			<key>id</key>
+			<string>WipeSavedLyrics</string>
 			<key>label</key>
-			<string>Enable Musixmatch Fallback</string>
-			<key>iconImageSystem</key>
-			<dict>
-				<key>name</key>
-				<string>globe</string>
-			</dict>
-			<key>default</key>
+			<string>Wipe Lyrics Cache</string>
+			<key>action</key>
+			<string>wipeSavedLyrics</string>
+			<key>isDestructive</key>
 			<true/>
-			<key>defaults</key>
-			<string>com.shalamand3r.datelyrics</string>
-			<key>PostNotification</key>
-			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
 		</dict>
 
 		<dict>
 			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Reset Settings</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Reset Settings</string>
+			<key>action</key>
+			<string>resetSettings</string>
+			<key>isDestructive</key>
+			<true/>
+			<key>confirmation</key>
+			<dict>
+				<key>prompt</key>
+				<string>Reset all DateLyrics settings and remove your custom Musixmatch token? Saved lyrics will be kept.</string>
+				<key>title</key>
+				<string>Reset All</string>
+				<key>okTitle</key>
+				<string>Reset</string>
+				<key>cancelTitle</key>
+				<string>Cancel</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>DateLyricsInternalDiagnostics</key><true/>
+            <key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Diagnostics</string>
@@ -42,7 +90,8 @@
 			<string>Temporarily write diagnostic events to /var/mobile/Library/DateLyrics/tweak-debug.log. Disable after testing.</string>
 		</dict>
 		<dict>
-			<key>cell</key>
+			<key>DateLyricsInternalDiagnostics</key><true/>
+            <key>cell</key>
 			<string>PSSwitchCell</string>
 			<key>key</key>
 			<string>DebugLogging</string>
@@ -61,7 +110,28 @@
 			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
 		</dict>
 		<dict>
-			<key>cell</key>
+			<key>DateLyricsInternalDiagnostics</key><true/>
+            <key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>NativeTransitionProbe</string>
+			<key>label</key>
+			<string>Native Transition Probe</string>
+			<key>iconImageSystem</key>
+			<dict>
+				<key>name</key>
+				<string>cpu</string>
+			</dict>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>DateLyricsInternalDiagnostics</key><true/>
+            <key>cell</key>
 			<string>PSButtonCell</string>
 			<key>label</key>
 			<string>View Debug Log</string>
@@ -69,7 +139,8 @@
 			<string>showDebugLog</string>
 		</dict>
 		<dict>
-			<key>cell</key>
+			<key>DateLyricsInternalDiagnostics</key><true/>
+            <key>cell</key>
 			<string>PSButtonCell</string>
 			<key>label</key>
 			<string>Copy Debug Log</string>
@@ -77,7 +148,8 @@
 			<string>copyDebugLog</string>
 		</dict>
 		<dict>
-			<key>cell</key>
+			<key>DateLyricsInternalDiagnostics</key><true/>
+            <key>cell</key>
 			<string>PSButtonCell</string>
 			<key>label</key>
 			<string>Clear Debug Log</string>
@@ -92,102 +164,6 @@
 				<key>prompt</key>
 				<string>This permanently removes the current DateLyrics diagnostic log.</string>
 			</dict>
-		</dict>
-
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Haptics</string>
-			<key>footerText</key>
-			<string>Provide haptic feedback on lyric and line changes.</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>key</key>
-			<string>HapticsEnabled</string>
-			<key>label</key>
-			<string>Haptics Enabled</string>
-			<key>iconImageSystem</key>
-			<dict>
-				<key>name</key>
-				<string>hand.tap</string>
-			</dict>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.shalamand3r.datelyrics</string>
-			<key>PostNotification</key>
-			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSegmentCell</string>
-			<key>key</key>
-			<string>HapticStyleSyllable</string>
-			<key>label</key>
-			<string>Syllable Change</string>
-			<key>default</key>
-			<integer>1</integer>
-			<key>defaults</key>
-			<string>com.shalamand3r.datelyrics</string>
-			<key>PostNotification</key>
-			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
-			<key>requires</key>
-			<string>HapticsEnabled</string>
-			<key>validTitles</key>
-			<array>
-				<string>None</string>
-				<string>Light</string>
-				<string>Medium</string>
-				<string>Heavy</string>
-				<string>Soft</string>
-				<string>Rigid</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<integer>-1</integer>
-				<integer>0</integer>
-				<integer>1</integer>
-				<integer>2</integer>
-				<integer>3</integer>
-				<integer>4</integer>
-			</array>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSegmentCell</string>
-			<key>key</key>
-			<string>HapticStyleLine</string>
-			<key>label</key>
-			<string>Line Change</string>
-			<key>default</key>
-			<integer>2</integer>
-			<key>defaults</key>
-			<string>com.shalamand3r.datelyrics</string>
-			<key>PostNotification</key>
-			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
-			<key>requires</key>
-			<string>HapticsEnabled</string>
-			<key>validTitles</key>
-			<array>
-				<string>None</string>
-				<string>Light</string>
-				<string>Medium</string>
-				<string>Heavy</string>
-				<string>Soft</string>
-				<string>Rigid</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<integer>-1</integer>
-				<integer>0</integer>
-				<integer>1</integer>
-				<integer>2</integer>
-				<integer>3</integer>
-				<integer>4</integer>
-			</array>
 		</dict>
 	</array>
 	<key>title</key>

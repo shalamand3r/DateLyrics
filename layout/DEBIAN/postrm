@@ -1,18 +1,19 @@
 #!/bin/sh
-# Must be /bin/sh, not /bin/bash: there is no /bin/bash on a rootless jailbreak,
+# must be /bin/sh, not /bin/bash: there is no /bin/bash on a rootless jailbreak,
 # so a bash shebang makes this script fail silently on every uninstall.
 
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
-    echo "Cleaning up Apple Music Container..."
+    echo "Removing DateLyrics caches and logs (preferences are kept)..."
     
-    SHARED_DIR="/var/mobile/Library/DateLyrics"
-    if [ -d "$SHARED_DIR" ] && [ ! -L "$SHARED_DIR" ]; then
-        if [ "$(basename "$SHARED_DIR")" = "DateLyrics" ]; then
-            rm -rf "$SHARED_DIR"
-            echo " ✅ Removed DateLyrics files from /var/mobile/Library"
+    for SHARED_DIR in /var/mobile/Library/DateLyrics /var/jb/var/mobile/Library/DateLyrics; do
+        if [ -d "$SHARED_DIR" ] && [ ! -L "$SHARED_DIR" ]; then
+            if [ "$(basename "$SHARED_DIR")" = "DateLyrics" ]; then
+                rm -rf "$SHARED_DIR"
+                echo " ✅ Removed DateLyrics files from /var/mobile/Library"
+            fi
         fi
-    fi
-    
+    done
+
     for bridge in \
         /var/mobile/Library/Preferences/com.shalamand3r.datelyrics.current-line.txt \
         /var/mobile/Library/Preferences/com.82flex.amlyrics.current-line.txt; do
@@ -25,9 +26,10 @@ if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     if [ -d "/var/mobile/Containers/Data/Application" ]; then
         for container in /var/mobile/Containers/Data/Application/*; do
             TARGET="$container/Library/DateLyrics"
-            if [ -d "$TARGET" ] && [ ! -L "$TARGET" ] && \
-               { grep -q '"host" *: *"music"' "$TARGET/runtime-status.json" 2>/dev/null || \
-                 grep -q '"source":"music"' "$TARGET/current-line.txt" 2>/dev/null; }; then
+            # only our dedicated directory is removed. do not depend on a
+            # diagnostic marker: fresh caches may not contain one yet.
+            if [ ! -L "$container" ] && [ ! -L "$container/Library" ] && \
+               [ -d "$TARGET" ] && [ ! -L "$TARGET" ]; then
                 if [ "$(basename "$TARGET")" = "DateLyrics" ]; then
                     rm -rf "$TARGET"
                     echo " ✅ Removed DateLyrics files from Apple Music container"

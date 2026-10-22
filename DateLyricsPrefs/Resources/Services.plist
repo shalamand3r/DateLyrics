@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key>
+	<string>Lyric Services</string>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Service Priority</string>
+			<key>footerText</key>
+			<string>Drag to set the lookup order. Line-by-line lyrics appear as soon as available; Services with word timing can upgrade them automatically.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Request Timeout</string>
+			<key>footerText</key>
+			<string>Maximum wait for each online request. Network errors can still end a request; skipping songs cancels the old lookup.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSegmentCell</string>
+			<key>key</key>
+			<string>LyricsRequestTimeout</string>
+			<key>label</key>
+			<string>Request Timeout</string>
+			<key>default</key>
+			<integer>10</integer>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			<key>validTitles</key>
+			<array>
+				<string>Short</string>
+				<string>Long</string>
+				<string>No Limit</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<integer>5</integer>
+				<integer>10</integer>
+				<integer>21</integer>
+			</array>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Match Strictness</string>
+			<key>footerText</key>
+			<string>Strict uses exact matches. Relaxed allows small title or artist spelling differences.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSegmentCell</string>
+			<key>key</key>
+			<string>RelaxedMatching</string>
+			<key>label</key>
+			<string>Match Strictness</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+			<key>validTitles</key>
+			<array>
+				<string>Strict</string>
+				<string>Relaxed</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<integer>0</integer>
+				<integer>1</integer>
+			</array>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Musixmatch Token</string>
+			<key>footerText</key>
+			<string>Paste your own Musixmatch token here if you want.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSecureEditTextCell</string>
+			<key>key</key>
+			<string>MusixmatchUserToken</string>
+			<key>label</key>
+			<string>Token</string>
+			<key>placeholder</key>
+			<string>Optional token</string>
+			<key>default</key>
+			<string></string>
+			<key>noAutoCorrect</key>
+			<true/>
+			<key>autoCaps</key>
+			<string>none</string>
+			<key>defaults</key>
+			<string>com.shalamand3r.datelyrics</string>
+			<key>PostNotification</key>
+			<string>com.shalamand3r.datelyrics/ReloadPrefs</string>
+		</dict>
+	</array>
+</dict>
+</plist>

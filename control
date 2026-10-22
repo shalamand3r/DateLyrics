@@ -1,9 +1,9 @@
 Package: com.shalamand3r.datelyrics
 Name: DateLyrics
-Version: 3.0
+Version: 4.0.9
 Architecture: iphoneos-arm64
-Depends: ellekit | mobilesubstrate (>= 0.9.5000), preferenceloader, firmware (>= 16.0)
-Description: Apple Music lyrics in the Lock Screen date view!
+Depends: com.shalamand3r.corelyrics (>= 1.0), ellekit | mobilesubstrate (>= 0.9.5000), preferenceloader, firmware (>= 16.0)
+Description: Lyrics in the Lock Screen date view!
 Icon: https://github.com/shalamand3r/shalamand3r.github.io/blob/main/icons/datelyrics.png?raw=true
 SileoDepiction: https://raw.githubusercontent.com/shalamand3r/shalamand3r.github.io/refs/heads/main/depictions/datelyrics.json
 Maintainer: shalamand3r

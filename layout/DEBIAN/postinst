@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Rootless package upgrades preserve existing directory modes. Ensure the
+# rootless package upgrades preserve existing directory modes. ensure the
 # preference loader can traverse and read the bundle after an upgrade.
 chmod 755 /var/jb/Library /var/jb/Library/PreferenceBundles \
     /var/jb/Library/PreferenceBundles/DateLyricsPrefs.bundle 2>/dev/null || true
@@ -10,5 +10,10 @@ chmod 644 /var/jb/Library/MobileSubstrate/DynamicLibraries/DateLyrics.plist \
     /var/jb/Library/PreferenceBundles/DateLyricsPrefs.bundle/Root.plist \
     /var/jb/Library/PreferenceBundles/DateLyricsPrefs.bundle/*.png \
     /var/jb/Library/PreferenceBundles/DateLyricsPrefs.bundle/preview.xml 2>/dev/null || true
+
+# clear retained developer switches through mobile's preference service.
+if [ "$1" = "configure" ]; then
+    /var/jb/usr/libexec/DateLyrics/DateLyricsResetDiagnostics || exit 1
+fi
 
 exit 0
