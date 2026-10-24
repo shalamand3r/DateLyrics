@@ -5277,21 +5277,49 @@ static void DateLyricsStartMusixmatchFallback(NSInteger storeID, NSString *title
     DateLyricsBeginSharedLookup(task);
 }
 
+static NSDictionary *gDateLyricsSelectedExternalInfo;
+static NSUInteger gDateLyricsExternalSelectionGeneration;
+static void DateLyricsRefreshSharedLyrics(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+    dispatch_async(gLyricsQueue, ^{
+        NSInteger selectedID = gDateLyricsSelectedExternalTrack;
+        NSDictionary *info = gDateLyricsSelectedExternalInfo;
+        if (!selectedID || !info || !gDateLyricsEnabled || !gDateLyricsExternalAppsEnabled) return;
+        DLLyricsTrack *track = [DLLyricsTrack trackWithTitle:info[@"kMRMediaRemoteNowPlayingInfoTitle"] artist:info[@"kMRMediaRemoteNowPlayingInfoArtist"] duration:[DateLyricsJSONNumber(info[@"kMRMediaRemoteNowPlayingInfoDuration"]) doubleValue]];
+        NSUInteger generation = gDateLyricsCacheGeneration, selectionGeneration = gDateLyricsExternalSelectionGeneration;
+        [DLLyricsEngine.sharedEngine cachedTrack:track completion:^(DLLyricsResult *result) {
+            dispatch_async(gLyricsQueue, ^{
+                if (!gDateLyricsEnabled || !gDateLyricsExternalAppsEnabled || selectedID != gDateLyricsSelectedExternalTrack ||
+                    generation != gDateLyricsCacheGeneration || selectionGeneration != gDateLyricsExternalSelectionGeneration ||
+                    !result.lines.count || (result.relaxedMatch && !gDateLyricsRelaxedMatching)) return;
+                DateLyricsScore *existing = DateLyricsScoreAtPath(DateLyricsMusixmatchScorePath(selectedID));
+                if (!DateLyricsSourceAllowedForMatchMode(existing.source, gDateLyricsRelaxedMatching)) existing = nil;
+                if (existing.hasWordTiming || (existing.lines.count && !result.hasWordTiming)) return;
+                DateLyricsDebugLog(@"[CoreLyrics] adopted shared cache lines=%lu words=%d", (unsigned long)result.lines.count, result.hasWordTiming);
+                DateLyricsWriteScoreJSON(selectedID, result.lines, result.hasWordTiming, result.relaxedMatch ? @"musixmatch-relaxed" : @"musixmatch");
+            });
+        }];
+    });
+}
 static void DateLyricsSelectExternalTrack(NSInteger trackID, NSDictionary *info) {
     dispatch_async(gLyricsQueue, ^{
         NSInteger selectedID = gDateLyricsEnabled && gDateLyricsExternalAppsEnabled ? trackID : 0;
-        if (selectedID == gDateLyricsSelectedExternalTrack) return;
+        BOOL sameTrack = selectedID == gDateLyricsSelectedExternalTrack;
+        double oldDuration = [DateLyricsJSONNumber(gDateLyricsSelectedExternalInfo[@"kMRMediaRemoteNowPlayingInfoDuration"]) doubleValue];
+        gDateLyricsSelectedExternalInfo = selectedID ? [info copy] : nil;
+        double duration = [DateLyricsJSONNumber(info[@"kMRMediaRemoteNowPlayingInfoDuration"]) doubleValue];
+        if (!isfinite(duration) || duration < 0) duration = 0;
+        if (sameTrack && !(oldDuration <= 0 && duration > 0)) return;
+        ++gDateLyricsExternalSelectionGeneration;
         NSInteger previous = gDateLyricsSelectedExternalTrack;
         gDateLyricsSelectedExternalTrack = selectedID;
         DateLyricsCancelProviderLookup(previous);
         if (!selectedID) return;
-        id durationValue = info[@"kMRMediaRemoteNowPlayingInfoDuration"];
-        double duration = [durationValue isKindOfClass:NSNumber.class] ? [durationValue doubleValue] : 0.0;
-        if (!isfinite(duration) || duration < 0.0) duration = 0.0;
+        if (sameTrack) [gMusixmatchFailureRetryAfter removeObjectForKey:@(selectedID)];
         id album = info[@"kMRMediaRemoteNowPlayingInfoAlbum"];
         DateLyricsStartMusixmatchFallback(selectedID, info[@"kMRMediaRemoteNowPlayingInfoTitle"],
             info[@"kMRMediaRemoteNowPlayingInfoArtist"], [album isKindOfClass:NSString.class] ? album : nil,
             duration, DateLyricsSyncTierNone);
+        DateLyricsRefreshSharedLyrics(NULL, NULL, NULL, NULL, NULL);
     });
 }
 
@@ -7993,6 +8021,7 @@ static void DateLyricsDiagnosticInventoryMethods(void) {
         });
 
         CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, DateLyricsHandleScoreChanged, CFSTR("com.shalamand3r.datelyrics/score.changed"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+        CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, DateLyricsRefreshSharedLyrics, CFSTR("com.shalamand3r.corelyrics/CacheUpdated"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 
         %init(DateLyricsSpringBoard);
         if (gDateLyricsNativeTransitionProbe) {

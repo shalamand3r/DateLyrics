@@ -58,6 +58,8 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Reset Settings</string>
+			<key>footerText</key>
+			<string>Restore default settings. Saved lyrics are kept.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -85,9 +87,9 @@
             <key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Diagnostics</string>
+			<string>Diagnostics (m9z2w4d8vw-blip)</string>
 			<key>footerText</key>
-			<string>Temporarily write diagnostic events to /var/mobile/Library/DateLyrics/tweak-debug.log. Disable after testing.</string>
+			<string>Record logs to help troubleshoot issues. Turn off when finished.</string>
 		</dict>
 		<dict>
 			<key>DateLyricsInternalDiagnostics</key><true/>

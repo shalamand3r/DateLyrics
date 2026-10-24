@@ -642,6 +642,7 @@ static void DateLyricsStyleDestructiveCell(UITableViewCell *cell, PSSpecifier *s
 
 @implementation DateLyricsExperimentalListController
 - (NSArray *)specifiers {
+    self.diagnosticsVisible = CFPreferencesGetAppBooleanValue(CFSTR("DiagnosticsVisible"), CFSTR("com.shalamand3r.datelyrics"), NULL);
 	if (!_specifiers) {
         NSArray *loaded = [self loadSpecifiersFromPlistName:@"Experimental" target:self];
         NSMutableArray *specs = [NSMutableArray array];
@@ -714,7 +715,7 @@ static void DateLyricsStyleDestructiveCell(UITableViewCell *cell, PSSpecifier *s
     [title sizeToFit];
     UILongPressGestureRecognizer *gesture = [[UILongPressGestureRecognizer alloc]
         initWithTarget:self action:@selector(toggleDiagnostics:)];
-    gesture.minimumPressDuration = 2.0;
+    gesture.minimumPressDuration = 1.0;
     [title addGestureRecognizer:gesture];
     self.navigationItem.titleView = title;
 }
@@ -722,6 +723,8 @@ static void DateLyricsStyleDestructiveCell(UITableViewCell *cell, PSSpecifier *s
 - (void)toggleDiagnostics:(UILongPressGestureRecognizer *)gesture {
     if (gesture.state != UIGestureRecognizerStateBegan) return;
     self.diagnosticsVisible = !self.diagnosticsVisible;
+    CFPreferencesSetAppValue(CFSTR("DiagnosticsVisible"), self.diagnosticsVisible ? kCFBooleanTrue : kCFBooleanFalse, CFSTR("com.shalamand3r.datelyrics"));
+    CFPreferencesAppSynchronize(CFSTR("com.shalamand3r.datelyrics"));
     _specifiers = nil;
     [self reloadSpecifiers];
     [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
