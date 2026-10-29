@@ -664,7 +664,7 @@ static void DateLyricsStyleDestructiveCell(UITableViewCell *cell, PSSpecifier *s
             if ([[spec propertyForKey:@"DateLyricsInternalDiagnostics"] boolValue] && !self.diagnosticsVisible) continue;
             [specs addObject:spec];
         }
-        BOOL supportsAOD = [DateLyricsCurrentPrefs()[@"AODDeviceSupported"] boolValue];
+        BOOL supportsAOD = DateLyricsBoolPreference(@"AODEnabled", nil);
 
         for (PSSpecifier *spec in specs) {
             if ([[spec propertyForKey:@"key"] isEqualToString:@"AODRefreshRetry"])
@@ -713,6 +713,8 @@ static void DateLyricsStyleDestructiveCell(UITableViewCell *cell, PSSpecifier *s
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    _specifiers = nil;
+    [self reloadSpecifiers];
     [self updateWipeCacheSpecifier];
 }
 

@@ -1629,7 +1629,7 @@ static NSString *DateLyricsAODDateDescription(id value) {
 }
 
 static void DateLyricsRequestAODRefresh(NSString *reason) {
-    if (!DateLyricsRenderingActive() || !gDateLyricsAlwaysOnDisplay || ![gDateLyricsBacklightEnvironment respondsToSelector:@selector(invalidateContentForReason:)]) return;
+    if (!gDateLyricsAODEnabled || !DateLyricsRenderingActive() || !gDateLyricsAlwaysOnDisplay || ![gDateLyricsBacklightEnvironment respondsToSelector:@selector(invalidateContentForReason:)]) return;
     NSUInteger sequence = ++gDateLyricsAODRefreshSequence;
     DateLyricsDebugLog(@"[AOD:REQUEST] seq=%lu reason=%@ track=%@ line=%@ elapsed=%.3f wall=%@ presentation=%@", (unsigned long)sequence, reason,
         gDateLyricsLocalAnchor[@"trackId"] ?: @0, gDateLyricsCurrentPayload[@"lineId"] ?: @"-", DateLyricsCurrentRenderElapsed(),
@@ -3194,7 +3194,7 @@ static NSTimeInterval DateLyricsDisplayHandoffDuration(CFTimeInterval deadline, 
 @end
 
 static BOOL DateLyricsDisplayMorphCanContinue(DateLyricsDisplayMorph *morph) {
-    return morph && DateLyricsRenderingActive() && gDateLyricsEnabled &&
+    return morph && DateLyricsRenderingActive() && gDateLyricsEnabled && gDateLyricsAODEnabled &&
         morph.enteringAOD == gDateLyricsAlwaysOnDisplay &&
         morph.trackID == [gDateLyricsLocalAnchor[@"trackId"] integerValue] &&
         morph.deadline > CACurrentMediaTime();
@@ -7148,8 +7148,11 @@ static void DateLyricsReloadPrefs(CFNotificationCenterRef center, void *observer
             if (wasEnabled != gDateLyricsEnabled || wasMusixmatchEnabled != gDateLyricsMusixmatchEnabled ||
                 wasExternalAppsEnabled != gDateLyricsExternalAppsEnabled || wasRelaxedMatching != gDateLyricsRelaxedMatching)
                 DateLyricsInvalidateScoreLoad();
-            if (wasAODEnabled != gDateLyricsAODEnabled)
+            if (wasAODEnabled != gDateLyricsAODEnabled) {
+                if (!gDateLyricsAODEnabled)
+                    for (_UIAnimatingLabel *label in DateLyricsAttachedDateLabels()) DateLyricsCancelDisplayMorph(label);
                 DateLyricsRefreshDisplayState(gDateLyricsScreenIsOn);
+            }
             // preference changes can rearm the source, but only a timeout
             // change adjusts its original expiry; aod/debug toggles do not.
             if (gDateLyricsPauseHideDeadline > 0.0)
@@ -7560,7 +7563,7 @@ static void DateLyricsSetDisplayMode(BOOL awake, BOOL alwaysOn) {
     DateLyricsDebugLog(@"[DISPLAY:POLICY] requestedAOD=%d systemAOD=%d tweakAOD=%d suppressed=%d", alwaysOn || suppressAOD, systemAODEnabled, gDateLyricsAODEnabled, suppressAOD);
     ++gDateLyricsDisplayModeRequestGeneration;
     DateLyricsUpdateAODTailMode(awake, alwaysOn);
-    BOOL handoff = awake && DateLyricsRenderingActive() && alwaysOn != gDateLyricsAlwaysOnDisplay;
+    BOOL handoff = gDateLyricsAODEnabled && DateLyricsSystemAODEnabled() && awake && DateLyricsRenderingActive() && alwaysOn != gDateLyricsAlwaysOnDisplay;
     NSMutableArray<DateLyricsDisplayMorph *> *morphs = [NSMutableArray array];
     NSSet *labels = DateLyricsAttachedDateLabels();
     for (_UIAnimatingLabel *label in labels) {
