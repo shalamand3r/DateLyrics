@@ -7737,6 +7737,9 @@ static void DateLyricsObserveDisplayState(void) {
         BOOL supported = [provider respondsToSelector:@selector(deviceSupportsAlwaysOn)] && [provider deviceSupportsAlwaysOn];
         CFPreferencesSetAppValue(CFSTR("AODDeviceSupported"), supported ? kCFBooleanTrue : kCFBooleanFalse, CFSTR("com.shalamand3r.datelyrics"));
         CFPreferencesAppSynchronize(CFSTR("com.shalamand3r.datelyrics"));
+        // refresh effective options after capability discovery on the first launch.
+        gDateLyricsAODEnabled = supported && DateLyricsBoolPreference(@"AODEnabled", nil);
+        gDateLyricsAODRefreshRetry = supported && DateLyricsBoolPreference(@"AODRefreshRetry", nil);
         DateLyricsDebugLog(@"[AOD:CAPABILITY] supported=%d", supported);
         Class cls = NSClassFromString(@"SBBacklightController");
         if ([cls respondsToSelector:@selector(sharedInstanceIfExists)]) {

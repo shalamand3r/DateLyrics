@@ -34,6 +34,10 @@ static inline id DateLyricsPreferenceValue(NSString *key, NSDictionary *legacy) 
 }
 
 static inline BOOL DateLyricsBoolPreference(NSString *key, NSDictionary *legacy) {
+    if ([key isEqualToString:@"AODEnabled"] || [key isEqualToString:@"AODRefreshRetry"]) {
+        id capability = DateLyricsPreferenceValue(@"AODDeviceSupported", legacy);
+        if (![capability isKindOfClass:NSNumber.class] || ![capability boolValue]) return NO;
+    }
     id value = DateLyricsPreferenceValue(key, legacy);
     return [value isKindOfClass:NSNumber.class] || [value isKindOfClass:NSString.class]
         ? [value boolValue] : [DateLyricsPreferenceDefaults()[key] boolValue];

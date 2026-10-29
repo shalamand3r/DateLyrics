@@ -381,6 +381,13 @@ static void DateLyricsWipeLyricsCaches(void);
     [self amlRefreshMainPreview];
 }
 
+- (id)readPreferenceValue:(PSSpecifier *)specifier {
+    NSString *key = [specifier propertyForKey:@"key"];
+    if ([key isEqualToString:@"AODEnabled"] || [key isEqualToString:@"AODRefreshRetry"])
+        return @(DateLyricsBoolPreference(key, nil));
+    return [super readPreferenceValue:specifier];
+}
+
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
 	[super setPreferenceValue:value specifier:specifier];
 
@@ -641,6 +648,13 @@ static void DateLyricsStyleDestructiveCell(UITableViewCell *cell, PSSpecifier *s
 }
 
 @implementation DateLyricsExperimentalListController
+- (id)readPreferenceValue:(PSSpecifier *)specifier {
+    NSString *key = [specifier propertyForKey:@"key"];
+    if ([key isEqualToString:@"AODEnabled"] || [key isEqualToString:@"AODRefreshRetry"])
+        return @(DateLyricsBoolPreference(key, nil));
+    return [super readPreferenceValue:specifier];
+}
+
 - (NSArray *)specifiers {
     self.diagnosticsVisible = CFPreferencesGetAppBooleanValue(CFSTR("DiagnosticsVisible"), CFSTR("com.shalamand3r.datelyrics"), NULL);
 	if (!_specifiers) {
