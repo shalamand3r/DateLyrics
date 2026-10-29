@@ -351,7 +351,7 @@ static BOOL DateLyricsSerializedLinesHaveTiming(NSArray *rawLines) {
 @implementation DateLyricsScore
 - (instancetype)initWithJSONData:(NSData *)data {
     if ((self = [super init])) {
-        if (data.length == 0) return nil;
+        if (data.length == 0 || data.length > 16 * 1024 * 1024) return nil;
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
         if (![json isKindOfClass:[NSDictionary class]] || ![json[@"kind"] isEqual:@"score"]) return nil;
         self.trackId = DateLyricsJSONTrackID(json[@"trackId"]);
@@ -5018,6 +5018,7 @@ static void DateLyricsPruneDiskCacheAtPath(NSString *rootPath) {
         if (!isAppleLyrics && !isScore) continue;
         NSString *path = [rootPath stringByAppendingPathComponent:entry];
         NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil];
+        if (![attributes.fileType isEqualToString:NSFileTypeRegular]) continue;
         NSMutableArray *destination = isScore ? scoreFiles : files;
         [destination addObject:@{ @"path": path, @"date": attributes[NSFileModificationDate] ?: [NSDate distantPast] }];
     }

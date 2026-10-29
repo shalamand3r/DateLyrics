@@ -1,6 +1,10 @@
 #import "CoreLyrics/CoreLyricsStorage.h"
 #pragma once
 #import <Foundation/Foundation.h>
+#import <sys/stat.h>
+#import <fcntl.h>
+#import <unistd.h>
+#import <errno.h>
 
 // keep existing locations and filenames so upgrades retain offline lyrics.
 static NSString *const DateLyricsSharedDirectory = @"/var/mobile/Library/DateLyrics";
@@ -30,7 +34,25 @@ static inline NSString *DateLyricsStorageMusicDirectory(Class proxyClass) {
 }
 
 static inline NSData *DateLyricsStorageReadData(NSString *path) {
-    return path.length ? [NSData dataWithContentsOfFile:path] : nil;
+    if (!path.length) return nil;
+    // reject special files and oversized legacy scores before allocating or reading.
+    int descriptor = open(path.fileSystemRepresentation, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
+    if (descriptor < 0) return nil;
+    struct stat info;
+    if (fstat(descriptor, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0 || info.st_size > 16 * 1024 * 1024) {
+        close(descriptor);
+        return nil;
+    }
+    NSMutableData *data = [NSMutableData dataWithLength:(NSUInteger)info.st_size];
+    NSUInteger offset = 0;
+    while (offset < data.length) {
+        ssize_t count = read(descriptor, (uint8_t *)data.mutableBytes + offset, data.length - offset);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) { close(descriptor); return nil; }
+        offset += (NSUInteger)count;
+    }
+    close(descriptor);
+    return data;
 }
 
 static inline NSString *DateLyricsStorageScorePath(NSString *directory, NSInteger track, NSString *source) {
